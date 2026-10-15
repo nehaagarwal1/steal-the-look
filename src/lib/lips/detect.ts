@@ -16,7 +16,24 @@ const MAX_SIDE = 1280;
 
 let landmarker: Promise<FaceLandmarker> | null = null;
 
+/**
+ * MediaPipe's WASM runtime prints harmless status lines such as
+ * "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." via console.error,
+ * which the Next.js dev overlay shows as an error. Drop only those INFO lines.
+ */
+let consoleFiltered = false;
+function filterMediaPipeInfoLogs() {
+  if (consoleFiltered || typeof console === "undefined") return;
+  consoleFiltered = true;
+  const original = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && /^INFO: (Created TensorFlow Lite|Initialized TensorFlow Lite)/.test(args[0])) return;
+    original(...args);
+  };
+}
+
 function getLandmarker(): Promise<FaceLandmarker> {
+  filterMediaPipeInfoLogs();
   landmarker ??= (async () => {
     const fileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
     return FaceLandmarker.createFromOptions(fileset, {

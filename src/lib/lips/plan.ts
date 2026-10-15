@@ -4,11 +4,15 @@
 import { catalog, type LipProduct } from "@/data/catalog";
 import { deltaE2000, hexToLab, labToHex } from "@/lib/color";
 import { matchScore, matchVerdict, type MatchVerdict } from "./measure";
+import { finishDistance, productFinish, type Finish } from "./finish";
 
 const lipsticks = () => catalog.filter((p): p is LipProduct => p.kind === "lipstick");
 
 /** True dupe threshold: under this, two shades look the same on the shopper's face. */
 export const DUPE_DELTA_E = 4;
+
+/** Ranking penalty per finish step (satin vs glossy = 1 step, matte vs glossy = 2), in color-difference units. */
+export const FINISH_PENALTY = 2.5;
 
 /**
  * Picks shades to try on: the closest `families` shade families to the look
@@ -16,12 +20,21 @@ export const DUPE_DELTA_E = 4;
  * the cheapest version. Real-lipstick photos rank well against catalog colors,
  * so this cheap first pass is good enough to choose candidates.
  */
-export function pickCandidates(lookHex: string, { families = 2, allowed }: { families?: number; allowed?: Set<string> } = {}): LipProduct[] {
-  return closestFamilies(lookHex, { families, allowed });
+export function pickCandidates(
+  lookHex: string,
+  { families = 2, allowed, finish }: { families?: number; allowed?: Set<string>; finish?: Finish } = {},
+): LipProduct[] {
+  return closestFamilies(lookHex, { families, allowed, finish });
 }
 
-/** Premium + cheapest of the `families` families whose premium color is closest to `hex`. */
-function closestFamilies(hex: string, { families, allowed, exclude }: { families: number; allowed?: Set<string>; exclude?: Set<string> }): LipProduct[] {
+/**
+ * Premium + cheapest of the `families` families whose premium color is closest to `hex`.
+ * With `finish`, shades of a different finish rank as if they were a bit further away.
+ */
+function closestFamilies(
+  hex: string,
+  { families, allowed, exclude, finish }: { families: number; allowed?: Set<string>; exclude?: Set<string>; finish?: Finish },
+): LipProduct[] {
   const byFamily = new Map<string, LipProduct[]>();
   for (const p of lipsticks()) {
     if (allowed && !allowed.has(p.id)) continue;
@@ -32,7 +45,8 @@ function closestFamilies(hex: string, { families, allowed, exclude }: { families
   return [...byFamily.values()]
     .map((members) => {
       const premium = members.reduce((a, b) => (b.price > a.price ? b : a));
-      return { members, premium, deltaE: deltaE2000(hex, premium.hex) };
+      const penalty = finish ? FINISH_PENALTY * finishDistance(productFinish(premium.texture), finish) : 0;
+      return { members, premium, deltaE: deltaE2000(hex, premium.hex) + penalty };
     })
     .sort((a, b) => a.deltaE - b.deltaE)
     .slice(0, families)
@@ -52,7 +66,7 @@ function closestFamilies(hex: string, { families, allowed, exclude }: { families
 export function refineCandidates(
   targetHex: string,
   measured: Measured[],
-  { families = 1, allowed }: { families?: number; allowed?: Set<string> } = {},
+  { families = 1, allowed, finish }: { families?: number; allowed?: Set<string>; finish?: Finish } = {},
 ): { picks: LipProduct[]; shift: { L: number; a: number; b: number } } {
   const t = hexToLab(targetHex);
   let wSum = 0;
@@ -67,13 +81,15 @@ export function refineCandidates(
   shift.L /= wSum; shift.a /= wSum; shift.b /= wSum;
   const wanted = labToHex({ L: t.L - shift.L, a: t.a - shift.a, b: t.b - shift.b });
   const tried = new Set(measured.map((m) => m.product.family ?? m.product.id));
-  return { picks: closestFamilies(wanted, { families, allowed, exclude: tried }), shift };
+  return { picks: closestFamilies(wanted, { families, allowed, exclude: tried, finish }), shift };
 }
 
 export type Measured = { product: LipProduct; hex: string };
 
 export type ProofCard = {
   product: LipProduct;
+  /** This shade's color as measured on the shopper's lips. */
+  hex: string;
   /** Difference between this shade on the shopper and the look on the shopper. */
   deltaE: number;
   score: number;
@@ -82,12 +98,15 @@ export type ProofCard = {
   savings?: number;
   /** For cheaper versions: how it compares on-face to the premium version. */
   dupe?: { premiumId: string; deltaE: number; isTrueDupe: boolean };
+  /** The product's finish, and whether it matches the look's finish (when known). */
+  finish: Finish;
+  finishMatch?: boolean;
 };
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 
 /** Builds proof cards from on-face measurements, best match first, cheapest first on ties. */
-export function buildProof(targetHex: string, measured: Measured[]): ProofCard[] {
+export function buildProof(targetHex: string, measured: Measured[], targetFinish?: Finish): ProofCard[] {
   const premiumByFamily = new Map<string, Measured>();
   for (const m of measured) {
     const key = m.product.family ?? m.product.id;
@@ -98,7 +117,11 @@ export function buildProof(targetHex: string, measured: Measured[]): ProofCard[]
   return measured
     .map((m) => {
       const dE = deltaE2000(targetHex, m.hex);
-      const card: ProofCard = { product: m.product, deltaE: round1(dE), score: matchScore(dE), verdict: matchVerdict(dE) };
+      const finish = productFinish(m.product.texture);
+      const card: ProofCard = {
+        product: m.product, hex: m.hex, deltaE: round1(dE), score: matchScore(dE), verdict: matchVerdict(dE),
+        finish, finishMatch: targetFinish ? finish === targetFinish : undefined,
+      };
       const premium = premiumByFamily.get(m.product.family ?? m.product.id);
       if (premium && premium.product.id !== m.product.id) {
         const vs = deltaE2000(premium.hex, m.hex);
@@ -110,11 +133,16 @@ export function buildProof(targetHex: string, measured: Measured[]): ProofCard[]
     .sort((a, b) => a.deltaE - b.deltaE || a.product.price - b.product.price);
 }
 
-/** The recommendation: the cheapest shade that matches the look about as well as the best one. */
+/**
+ * The recommendation: among shades that match the look about as well as the best one,
+ * prefer the same finish as the look, then the lowest price.
+ */
 export function bestBuy(cards: ProofCard[], tolerance = 1.5): ProofCard | undefined {
   if (!cards.length) return undefined;
-  const best = cards[0].deltaE;
-  return cards.filter((c) => c.deltaE <= best + tolerance).sort((a, b) => a.product.price - b.product.price)[0];
+  const best = Math.min(...cards.map((c) => c.deltaE));
+  return cards
+    .filter((c) => c.deltaE <= best + tolerance)
+    .sort((a, b) => Number(b.finishMatch ?? false) - Number(a.finishMatch ?? false) || a.product.price - b.product.price)[0];
 }
 
 /** Shades at or beyond this difference are tucked away under "other shades tried". */

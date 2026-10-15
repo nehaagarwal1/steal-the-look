@@ -168,3 +168,17 @@ figcaption { color: var(--muted); margin-top: 0.25rem; }
 
 /* The real file input is visually hidden inside its label; show focus on the label for keyboard users. */
 .button-like:focus-within { outline: 4px solid var(--focus); outline-offset: 3px; }
+
+.consent { margin: 0.5rem 0; font-weight: 600; align-items: flex-start; }
+.consent input { margin-top: 0.2rem; flex: none; }
+
+.why { display: block; font-style: italic; color: var(--fg); }
+.best .why { font-size: 1rem; margin-top: 0.25rem; }
+
+.finish { font-weight: 600; }
+.finish-off { color: #b26a00; }
+@media (prefers-color-scheme: dark) { .finish-off { color: #ffcc80; } }
+
+.share { margin: 0.75rem 0 1rem; }
+.share-preview { width: 100%; max-width: 360px; border-radius: 12px; border: 2px solid var(--border); display: block; margin-bottom: 0.5rem; }
+a.button-like { text-decoration: none; }

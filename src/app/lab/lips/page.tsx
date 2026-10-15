@@ -96,6 +96,8 @@ export default function LipLab() {
                       </span>
                     </p>
                     <p>
+                      Finish: <strong>{r.finish}</strong> (shine {r.shine}%)
+                      <br />
                       Confidence: <strong>{r.confidence}</strong> ({r.pixelCount} pixels, spread {r.spread})
                       {r.reasons.length > 0 && <><br />{r.reasons.join("; ")}</>}
                     </p>

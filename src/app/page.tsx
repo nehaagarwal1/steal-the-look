@@ -7,6 +7,9 @@ import type { LipProduct } from "@/data/catalog";
 import type { LipResult } from "@/lib/lips/detect";
 import { bestBuy, buildProof, DUPE_DELTA_E, groupByFamily, pickCandidates, refineCandidates, type ProofCard } from "@/lib/lips/plan";
 import { deltaE2000 } from "@/lib/color";
+import { explainShade } from "@/lib/lips/explain";
+import { describeFinishMismatch, type Finish } from "@/lib/lips/finish";
+import { shareCaption, shareFacts } from "@/lib/share";
 
 type Config = { demo: boolean; demoReady: boolean; demoProducts: string[] };
 type Start = { fileId: string; selfieImage: string; transferImage: string; lookImage?: string };
@@ -31,6 +34,15 @@ function photoProblem(r: LipResult | null): string | null {
 const label = (p: LipProduct) => `${p.shade}, ${p.name}`;
 
 type ShadeCard = ProofCard & { crop?: string; image: string; round: 1 | 2 };
+
+const cap = (w: string) => `${w[0].toUpperCase()}${w.slice(1)}`;
+
+/** Color explanation plus a finish note when the finish differs from the look. */
+function whyText(targetHex: string, card: ProofCard, lookFinish?: Finish): string {
+  const e = explainShade(targetHex, card.hex);
+  const finishNote = lookFinish ? describeFinishMismatch(card.finish, lookFinish) : null;
+  return [e.difference, finishNote, e.takeaway].filter(Boolean).join(" ");
+}
 
 /** fetch that gives up after `ms` with a readable error, so the page never spins forever. */
 async function fetchJson(url: string, init: RequestInit, ms: number) {
@@ -81,6 +93,8 @@ export default function Home() {
 
   const [selfie, setSelfie] = useState<File | null>(null);
   const [look, setLook] = useState<File | null>(null);
+  /** The look photo may show a friend: it goes to YouCam, so the shopper must confirm permission. */
+  const [lookConsent, setLookConsent] = useState(false);
   const [selfieCheck, setSelfieCheck] = useState<LipResult | null>(null);
   const [lookCheck, setLookCheck] = useState<LipResult | null>(null);
 
@@ -91,6 +105,7 @@ export default function Home() {
 
   const [cards, setCards] = useState<ShadeCard[]>([]);
   const [cart, setCart] = useState<LipProduct[]>([]);
+  const [shareImage, setShareImage] = useState<{ url: string; blob: Blob; caption: string } | null>(null);
   const resultsRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -99,7 +114,7 @@ export default function Home() {
 
   async function onPick(kind: "selfie" | "look", file: File | null) {
     setError("");
-    if (kind === "selfie") { setSelfie(file); setSelfieCheck(null); } else { setLook(file); setLookCheck(null); }
+    if (kind === "selfie") { setSelfie(file); setSelfieCheck(null); } else { setLook(file); setLookCheck(null); setLookConsent(false); }
     if (!file) return;
     setStatus(`Checking your ${kind === "selfie" ? "selfie" : "look photo"}…`);
     try {
@@ -119,6 +134,7 @@ export default function Home() {
       const form = new FormData();
       if (selfie) form.append("selfie", selfie);
       if (look) form.append("look", look);
+      if (lookConsent) form.append("consent", "yes");
       const s = (await fetchJson("/api/look/start", { method: "POST", body: form }, 120_000)) as Start;
       stop();
       setStatus("Finding your lips in the result…");
@@ -184,7 +200,8 @@ export default function Home() {
     const allowed = config?.demo ? new Set(config.demoProducts) : undefined;
     try {
       // Round 1: shades closest to the look photo.
-      const picks = pickCandidates(lookCheck.hex, { families: 2, allowed });
+      const lookFinish = lookCheck.finish;
+      const picks = pickCandidates(lookCheck.hex, { families: 2, allowed, finish: lookFinish });
       const round1 = await tryAndMeasure(picks, `Trying ${picks.length} matching shades on your face…`, 1);
       let measured = round1.measured;
       const failed = [...round1.failed];
@@ -193,7 +210,7 @@ export default function Home() {
       // Round 2: if nothing is very close yet, calibrate to these lips and try adjusted shades.
       const closest = Math.min(...measured.map((m) => deltaE2000(target.hex, m.hex)));
       if (closest >= DUPE_DELTA_E) {
-        const { picks: refined } = refineCandidates(target.hex, measured, { families: 1, allowed });
+        const { picks: refined } = refineCandidates(target.hex, measured, { families: 1, allowed, finish: lookFinish });
         if (refined.length) {
           const round2 = await tryAndMeasure(refined, "Calibrating to your lips: trying adjusted shades…", 2);
           measured = [...measured, ...round2.measured];
@@ -201,7 +218,7 @@ export default function Home() {
         }
       }
 
-      const proof = buildProof(target.hex, measured).map((c) => {
+      const proof = buildProof(target.hex, measured, lookFinish).map((c) => {
         const m = measured.find((x) => x.product.id === c.product.id)!;
         return { ...c, crop: m.crop, image: m.image, round: m.round };
       });
@@ -226,12 +243,46 @@ export default function Home() {
     });
   }
 
+  async function makeShareCard() {
+    const b = bestBuy(cards);
+    const crop = cards.find((c) => c.product.id === b?.product.id)?.crop;
+    if (!b || !crop || !target?.lipCrop) return;
+    try {
+      const { renderShareCard } = await import("@/lib/share-card");
+      const facts = shareFacts(b, lookCheck?.finish);
+      const blob = await renderShareCard(facts, target.lipCrop, crop);
+      if (shareImage) URL.revokeObjectURL(shareImage.url);
+      setShareImage({ url: URL.createObjectURL(blob), blob, caption: shareCaption(facts) });
+      setStatus("Your result card is ready below. Download it or share it.");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function shareCard() {
+    if (!shareImage) return;
+    const file = new File([shareImage.blob], "steal-the-look.png", { type: "image/png" });
+    try {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: shareImage.caption });
+      } else {
+        await navigator.clipboard.writeText(shareImage.caption);
+        setStatus("Sharing isn't supported in this browser, so the caption was copied. Download the image to post it.");
+      }
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") setError(`Sharing failed: ${(e as Error).message}`);
+    }
+  }
+
   function restart() {
+    if (shareImage) URL.revokeObjectURL(shareImage.url);
+    setShareImage(null);
     setStage("upload"); setStart(null); setLipsOnly(""); setTarget(null); setCards([]); setShowFull(false); setError(""); setStatus("");
   }
 
   const demo = config?.demo;
-  const canStart = demo ? config?.demoReady : !!(selfie && look && selfieCheck && lookCheck && !photoProblem(selfieCheck) && !photoProblem(lookCheck));
+  const photosReady = !!(selfie && look && selfieCheck && lookCheck && !photoProblem(selfieCheck) && !photoProblem(lookCheck));
+  const canStart = demo ? config?.demoReady : photosReady && lookConsent;
   const best = bestBuy(cards);
   const cartTotal = cart.reduce((s, p) => s + p.price, 0);
 
@@ -266,11 +317,22 @@ export default function Home() {
           <>
             <div className="pickers">
               <PhotoPicker title="Your selfie" hint="Front-facing, no glasses, bare or light lips, good light." file={selfie} check={selfieCheck} onPick={(f) => onPick("selfie", f)} disabled={stage !== "upload"} />
-              <PhotoPicker title="A look you love" hint="Your own photo or one you have rights to. One face, lips clearly visible." file={look} check={lookCheck} onPick={(f) => onPick("look", f)} disabled={stage !== "upload"} />
+              <PhotoPicker title="A look you love" hint="A friend's photo, a photo of you, or any look you have permission to use. One face, lips clearly visible." file={look} check={lookCheck} onPick={(f) => onPick("look", f)} disabled={stage !== "upload"} />
             </div>
-            <p className="hint">
-              Photos are sent to YouCam to create the try-ons and kept by them for up to 24 hours. We don&apos;t store them.
+            <p className="hint" id="photo-privacy">
+              Both photos are sent to YouCam to create the try-ons and kept by them for up to 24 hours. We don&apos;t store them.
             </p>
+            <label className="toggle consent">
+              <input
+                type="checkbox"
+                checked={lookConsent}
+                onChange={(e) => setLookConsent(e.target.checked)}
+                disabled={stage !== "upload"}
+                aria-describedby="photo-privacy"
+              />
+              I have permission to use the look photo: it&apos;s me, or the person in it agreed.
+            </label>
+            {photosReady && !lookConsent && <p className="hint">Tick the permission box to continue.</p>}
           </>
         )}
         <button className="big primary" onClick={seeItOnMe} disabled={!canStart || stage !== "upload"}>
@@ -294,6 +356,7 @@ export default function Home() {
                   <span className="swatch big-swatch" style={{ background: target.hex }} aria-hidden />
                   <span>Target lip color on you<br /><strong>{target.hex}</strong></span>
                 </p>
+                {lookCheck && <p>Finish of the look: <strong>{cap(lookCheck.finish)}</strong> <span className="hint">(measured from the look photo)</span></p>}
                 <label className="toggle">
                   <input type="checkbox" checked={showFull} onChange={(e) => setShowFull(e.target.checked)} /> Show the full look
                 </label>
@@ -316,13 +379,32 @@ export default function Home() {
             <p className="best">
               <strong>Best buy:</strong> {label(best.product)}: {best.score}% match to the look, <strong>${best.product.price}</strong>
               {best.savings ? <> (save ${best.savings} vs. the premium version)</> : null}.
+              {target && <><br /><span className="why">{whyText(target.hex, best, lookCheck?.finish)}</span></>}
             </p>
+          )}
+          {best && (
+            <div className="share">
+              {!shareImage ? (
+                <button onClick={makeShareCard}>Share my result</button>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={shareImage.url} alt={`Result card: ${shareImage.caption}`} className="share-preview" />
+                  <div className="actions">
+                    <a className="button-like" href={shareImage.url} download="steal-the-look.png">Download image</a>
+                    <button onClick={shareCard}>Share…</button>
+                    <button onClick={() => navigator.clipboard.writeText(shareImage.caption).then(() => setStatus("Caption copied."))}>Copy caption</button>
+                  </div>
+                  <p className="hint">Only the lip close-ups are shown, not your whole face. Caption: &ldquo;{shareImage.caption}&rdquo;</p>
+                </>
+              )}
+            </div>
           )}
           {(() => {
             const groups = groupByFamily(cards);
             const strong = groups.filter((g) => !g.weak), weak = groups.filter((g) => g.weak);
             const render = (g: (typeof groups)[number]) => (
-              <ShadeGroupCard key={g.family} group={g} targetCrop={target?.lipCrop} bestId={best?.product.id} onAdd={addToCart} />
+              <ShadeGroupCard key={g.family} group={g} targetCrop={target?.lipCrop} targetHex={target?.hex} lookFinish={lookCheck?.finish} bestId={best?.product.id} onAdd={addToCart} />
             );
             return (
               <>
@@ -383,9 +465,11 @@ function PhotoPicker(props: { title: string; hint: string; file: File | null; ch
   );
 }
 
-function ShadeGroupCard({ group, targetCrop, bestId, onAdd }: {
+function ShadeGroupCard({ group, targetCrop, targetHex, lookFinish, bestId, onAdd }: {
   group: ReturnType<typeof groupByFamily<ShadeCard>>[number];
   targetCrop?: string;
+  targetHex?: string;
+  lookFinish?: Finish;
   bestId?: string;
   onAdd: (p: LipProduct) => void;
 }) {
@@ -406,15 +490,21 @@ function ShadeGroupCard({ group, targetCrop, bestId, onAdd }: {
               <figcaption>The look on you</figcaption>
             </figure>
           )}
-          {group.variants.map((c) => (
+          {group.variants.map((c) => {
+            const why = targetHex ? whyText(targetHex, c, lookFinish) : null;
+            return (
             <figure key={c.product.id} className={`variant ${c.product.id === bestId ? "is-best" : ""}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {c.crop && <img src={c.crop} alt={`${label(c.product)} on your lips`} />}
+              {c.crop && <img src={c.crop} alt={`${label(c.product)} on your lips. ${why ?? ""}`} />}
               <figcaption>
                 {c.product.id === bestId && <span className="tag best-tag">Best buy</span>}
                 <span className="card-brand">{c.product.name}</span>
                 <span className="price">${c.product.price}</span>
                 <span><span className="score">{c.score}%</span> match · {c.verdict}</span>
+                <span className={`finish ${c.finishMatch === false ? "finish-off" : ""}`}>
+                  {cap(c.finish)} finish{c.finishMatch === true ? " ✓ same as the look" : c.finishMatch === false ? `, the look is ${lookFinish}` : ""}
+                </span>
+                {why && <span className="why">{why}</span>}
                 <span className="hint">ΔE {c.deltaE}</span>
                 {c.dupe && (
                   <span className={c.dupe.isTrueDupe ? "dupe-ok" : "dupe-no"}>
@@ -426,7 +516,8 @@ function ShadeGroupCard({ group, targetCrop, bestId, onAdd }: {
                 <button onClick={() => onAdd(c.product)} aria-label={`Add ${label(c.product)}, $${c.product.price}, to cart`}>Add to cart</button>
               </figcaption>
             </figure>
-          ))}
+            );
+          })}
         </div>
       </article>
     </li>

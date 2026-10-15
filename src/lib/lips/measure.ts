@@ -2,6 +2,7 @@
 // No browser APIs here, so it is unit-tested in Node.
 
 import { deltaE2000, labToHex, rgbToLab, type Lab } from "@/lib/color";
+import { finishFromShine, measureShine, type Finish } from "./finish";
 
 export type Pixels = { data: Uint8ClampedArray | Uint8Array; width: number; height: number };
 
@@ -14,6 +15,9 @@ export type LipMeasurement = {
   spread: number;
   confidence: "high" | "medium" | "low";
   reasons: string[];
+  /** % of lip pixels that are specular highlights (gloss). */
+  shine: number;
+  finish: Finish;
 };
 
 const median = (xs: number[]) => {
@@ -40,8 +44,11 @@ export function measureLipColor(px: Pixels, mask: Uint8Array): LipMeasurement {
   }
   const reasons: string[] = [];
   if (labs.length < 50) {
-    return { hex: "#000000", lab: { L: 0, a: 0, b: 0 }, pixelCount: labs.length, spread: 0, confidence: "low", reasons: ["lips not found or too small"] };
+    return { hex: "#000000", lab: { L: 0, a: 0, b: 0 }, pixelCount: labs.length, spread: 0, confidence: "low", reasons: ["lips not found or too small"], shine: 0, finish: "matte" };
   }
+
+  // Shine is measured on all lip pixels, before highlights are trimmed away for the color.
+  const shine = measureShine(labs);
 
   labs.sort((x, y) => x.L - y.L);
   const trimmed = labs.slice(Math.floor(labs.length * 0.15), Math.ceil(labs.length * 0.85));
@@ -56,7 +63,7 @@ export function measureLipColor(px: Pixels, mask: Uint8Array): LipMeasurement {
   if (lab.L < 20) reasons.push("photo is very dark");
   const confidence = reasons.length === 0 ? "high" : reasons.length === 1 ? "medium" : "low";
 
-  return { hex: labToHex(lab), lab, pixelCount: trimmed.length, spread: Math.round(spread * 10) / 10, confidence, reasons };
+  return { hex: labToHex(lab), lab, pixelCount: trimmed.length, spread: Math.round(spread * 10) / 10, confidence, reasons, shine, finish: finishFromShine(shine) };
 }
 
 export type MatchVerdict = "looks the same" | "very close" | "close" | "noticeably different" | "different";

@@ -16,6 +16,10 @@ export async function POST(req: Request) {
     if (!(selfie instanceof File) || !(look instanceof File)) {
       return NextResponse.json({ error: "Please add both your selfie and a look photo." }, { status: 400 });
     }
+    if (form.get("consent") !== "yes") {
+      // The look photo can show another person; it is only uploaded with the shopper's confirmation.
+      return NextResponse.json({ error: "Please confirm you have permission to use the look photo." }, { status: 400 });
+    }
     if (selfie.size > MAX_BYTES || look.size > MAX_BYTES) {
       return NextResponse.json({ error: "Photos must be under 10 MB." }, { status: 400 });
     }
