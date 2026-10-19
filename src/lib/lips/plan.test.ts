@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getProduct, type LipProduct } from "@/data/catalog";
-import { bestBuy, buildProof, groupByFamily, pickCandidates, refineCandidates } from "./plan";
+import { bestBuy, buildProof, estimateShift, groupByFamily, mergeProfile, pickCalibrated, pickCandidates, refineCandidates } from "./plan";
 import { deltaE2000, hexToLab, labToHex } from "@/lib/color";
 
 const lip = (id: string) => getProduct(id) as LipProduct;
@@ -87,5 +87,34 @@ describe("groupByFamily", () => {
     expect(groups[0].variants[0].product.price).toBeGreaterThan(groups[0].variants[1].product.price);
     expect(groups[0].weak).toBe(false);
     expect(groups[1].weak).toBe(true);
+  });
+});
+
+describe("lip profile", () => {
+  const render = (hex: string) => { const c = hexToLab(hex); return labToHex({ L: c.L - 9, a: c.a - 3, b: c.b - 6 }); };
+  const target = "#87404B";
+
+  it("estimates the shift a face applies to catalog colors", () => {
+    const round1 = pickCandidates(target, { families: 2 }).map((p) => ({ product: p, hex: render(p.hex) }));
+    const shift = estimateShift(target, round1)!;
+    expect(shift.L).toBeCloseTo(-9, 0);
+    expect(shift.b).toBeCloseTo(-6, 0);
+  });
+
+  it("with a saved shift, the first round already lands very close", () => {
+    const calibrated = pickCalibrated(target, { L: -9, a: -3, b: -6 }, { families: 2 });
+    const best = Math.min(...calibrated.map((p) => deltaE2000(target, render(p.hex))));
+    const uncalibrated = Math.min(...pickCandidates(target, { families: 2 }).map((p) => deltaE2000(target, render(p.hex))));
+    expect(best).toBeLessThan(4);
+    expect(best).toBeLessThan(uncalibrated);
+  });
+
+  it("averages sessions into the profile", () => {
+    const p1 = mergeProfile(null, { L: -10, a: -2, b: -6 });
+    expect(p1.looks).toBe(1);
+    const p2 = mergeProfile(p1, { L: -8, a: -4, b: -6 });
+    expect(p2.looks).toBe(2);
+    expect(p2.shift.L).toBeCloseTo(-9);
+    expect(p2.shift.a).toBeCloseTo(-3);
   });
 });

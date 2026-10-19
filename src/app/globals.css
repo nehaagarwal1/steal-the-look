@@ -182,3 +182,8 @@ figcaption { color: var(--muted); margin-top: 0.25rem; }
 .share { margin: 0.75rem 0 1rem; }
 .share-preview { width: 100%; max-width: 360px; border-radius: 12px; border: 2px solid var(--border); display: block; margin-bottom: 0.5rem; }
 a.button-like { text-decoration: none; }
+
+.profile-note { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding: 0.6rem 0.9rem; border: 2px dashed var(--accent); border-radius: 10px; }
+.profile-note span { flex: 1 1 18rem; }
+
+.effort { color: var(--muted); margin-top: -0.25rem; }

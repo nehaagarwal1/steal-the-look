@@ -63,25 +63,68 @@ function closestFamilies(
  * target most, and look for the shade whose catalog color minus that shift
  * would land on the target. Returns new shades to try (premium + cheapest).
  */
-export function refineCandidates(
-  targetHex: string,
-  measured: Measured[],
-  { families = 1, allowed, finish }: { families?: number; allowed?: Set<string>; finish?: Finish } = {},
-): { picks: LipProduct[]; shift: { L: number; a: number; b: number } } {
-  const t = hexToLab(targetHex);
+/** How catalog colors shift when rendered on one shopper's lips (Lab offsets). */
+export type LipShift = { L: number; a: number; b: number };
+
+/**
+ * Estimates the shift "catalog color -> color on these lips" from measured
+ * try-ons, trusting shades that landed close to the target most.
+ * Returns null when nothing was measured.
+ */
+export function estimateShift(targetHex: string, measured: Measured[]): LipShift | null {
   let wSum = 0;
   const shift = { L: 0, a: 0, b: 0 };
   for (const m of measured) {
     const r = hexToLab(m.hex), c = hexToLab(m.product.hex);
-    const w = 1 / (1 + deltaE2000(targetHex, m.hex)); // trust shades that landed close
+    const w = 1 / (1 + deltaE2000(targetHex, m.hex));
     shift.L += w * (r.L - c.L); shift.a += w * (r.a - c.a); shift.b += w * (r.b - c.b);
     wSum += w;
   }
-  if (wSum === 0) return { picks: [], shift };
-  shift.L /= wSum; shift.a /= wSum; shift.b /= wSum;
+  if (wSum === 0) return null;
+  return { L: shift.L / wSum, a: shift.a / wSum, b: shift.b / wSum };
+}
+
+/** Shades whose catalog color, shifted the way it will be on these lips, lands closest to the target. */
+export function pickCalibrated(
+  targetHex: string,
+  shift: LipShift,
+  { families = 2, allowed, finish, exclude }: { families?: number; allowed?: Set<string>; finish?: Finish; exclude?: Set<string> } = {},
+): LipProduct[] {
+  const t = hexToLab(targetHex);
   const wanted = labToHex({ L: t.L - shift.L, a: t.a - shift.a, b: t.b - shift.b });
+  return closestFamilies(wanted, { families, allowed, exclude, finish });
+}
+
+/**
+ * Calibrates to the shopper's lips. Try-ons render differently on each face
+ * (natural lip color, lighting), so after a first round we estimate the shift
+ * and look for the shade whose catalog color would land on the target.
+ * Returns new shades to try (premium + cheapest), never re-trying a family.
+ */
+export function refineCandidates(
+  targetHex: string,
+  measured: Measured[],
+  { families = 1, allowed, finish }: { families?: number; allowed?: Set<string>; finish?: Finish } = {},
+): { picks: LipProduct[]; shift: LipShift } {
+  const shift = estimateShift(targetHex, measured);
+  if (!shift) return { picks: [], shift: { L: 0, a: 0, b: 0 } };
   const tried = new Set(measured.map((m) => m.product.family ?? m.product.id));
-  return { picks: closestFamilies(wanted, { families, allowed, exclude: tried, finish }), shift };
+  return { picks: pickCalibrated(targetHex, shift, { families, allowed, finish, exclude: tried }), shift };
+}
+
+/** A saved lip profile: the averaged shift plus how many looks it's based on. */
+export type LipProfile = { shift: LipShift; looks: number; updatedAt: string };
+
+/** Folds a new session's shift into the profile (running average, so each look counts equally). */
+export function mergeProfile(prev: LipProfile | null, shift: LipShift, now = new Date()): LipProfile {
+  if (!prev) return { shift, looks: 1, updatedAt: now.toISOString() };
+  const n = prev.looks;
+  const avg = (a: number, b: number) => (a * n + b) / (n + 1);
+  return {
+    shift: { L: avg(prev.shift.L, shift.L), a: avg(prev.shift.a, shift.a), b: avg(prev.shift.b, shift.b) },
+    looks: n + 1,
+    updatedAt: now.toISOString(),
+  };
 }
 
 export type Measured = { product: LipProduct; hex: string };

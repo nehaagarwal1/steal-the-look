@@ -5,7 +5,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { LipProduct } from "@/data/catalog";
 import type { LipResult } from "@/lib/lips/detect";
-import { bestBuy, buildProof, DUPE_DELTA_E, groupByFamily, pickCandidates, refineCandidates, type ProofCard } from "@/lib/lips/plan";
+import { bestBuy, buildProof, DUPE_DELTA_E, estimateShift, groupByFamily, mergeProfile, pickCalibrated, pickCandidates, refineCandidates, type LipProfile, type ProofCard } from "@/lib/lips/plan";
+import { forgetProfile, loadProfile, saveProfile, selfieFingerprint } from "@/lib/lip-profile";
 import { deltaE2000 } from "@/lib/color";
 import { explainShade } from "@/lib/lips/explain";
 import { describeFinishMismatch, type Finish } from "@/lib/lips/finish";
@@ -33,7 +34,8 @@ function photoProblem(r: LipResult | null): string | null {
 
 const label = (p: LipProduct) => `${p.shade}, ${p.name}`;
 
-type ShadeCard = ProofCard & { crop?: string; image: string; round: 1 | 2 };
+/** `calibrated`: picked using how colors shift on these lips (round 2, or a saved lip profile). */
+type ShadeCard = ProofCard & { crop?: string; image: string; calibrated: boolean };
 
 const cap = (w: string) => `${w[0].toUpperCase()}${w.slice(1)}`;
 
@@ -102,10 +104,15 @@ export default function Home() {
   const [lipsOnly, setLipsOnly] = useState("");
   const [showFull, setShowFull] = useState(false);
   const [target, setTarget] = useState<LipResult | null>(null);
+  /** Saved lip profile for this selfie (numbers only, stored in this browser). */
+  const [profileKey, setProfileKey] = useState<string | null>(null);
+  const [profile, setProfile] = useState<LipProfile | null>(null);
 
   const [cards, setCards] = useState<ShadeCard[]>([]);
   const [cart, setCart] = useState<LipProduct[]>([]);
   const [shareImage, setShareImage] = useState<{ url: string; blob: Blob; caption: string } | null>(null);
+  /** How much work the last search took, shown with the results. */
+  const [effort, setEffort] = useState<{ rounds: number; tryOns: number; usedProfile: boolean } | null>(null);
   const resultsRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -153,6 +160,9 @@ export default function Home() {
       setStart(s);
       setLipsOnly(composite.toDataURL("image/jpeg", 0.9));
       setTarget(t);
+      const key = await selfieFingerprint(s.selfieImage);
+      setProfileKey(key);
+      setProfile(loadProfile(key));
       setStage("preview");
       setStatus("Here's the look on you. Only your lips were changed.");
     } catch (e) {
@@ -163,10 +173,10 @@ export default function Home() {
     }
   }
 
-  type MeasuredShade = { product: LipProduct; hex: string; crop?: string; image: string; round: 1 | 2 };
+  type MeasuredShade = { product: LipProduct; hex: string; crop?: string; image: string; calibrated: boolean };
 
   /** Tries shades on the selfie (YouCam) and measures each result's lips (browser). */
-  async function tryAndMeasure(picks: LipProduct[], text: string, round: 1 | 2): Promise<{ measured: MeasuredShade[]; failed: LipProduct[] }> {
+  async function tryAndMeasure(picks: LipProduct[], text: string, calibrated: boolean): Promise<{ measured: MeasuredShade[]; failed: LipProduct[] }> {
     const stop = tickStatus(setStatus, text);
     try {
       const json = await fetchJson("/api/look/tryon", {
@@ -183,7 +193,7 @@ export default function Home() {
         const r = (json.results as { productId: string; image?: string }[]).find((x) => x.productId === product.id);
         const img = r?.image;
         const m = img ? await step(`measuring ${product.id}`, 15_000, async () => measureLipsInImage(await toBitmap(img))) : null;
-        if (r?.image && m?.faceFound) measured.push({ product, hex: m.hex, crop: m.lipCrop, image: r.image, round });
+        if (r?.image && m?.faceFound) measured.push({ product, hex: m.hex, crop: m.lipCrop, image: r.image, calibrated });
         else failed.push(product);
       }
       return { measured, failed };
@@ -199,10 +209,18 @@ export default function Home() {
     setStage("trying");
     const allowed = config?.demo ? new Set(config.demoProducts) : undefined;
     try {
-      // Round 1: shades closest to the look photo.
+      // Round 1: with a saved lip profile, pick shades already corrected for these lips;
+      // otherwise, shades closest to the look photo.
       const lookFinish = lookCheck.finish;
-      const picks = pickCandidates(lookCheck.hex, { families: 2, allowed, finish: lookFinish });
-      const round1 = await tryAndMeasure(picks, `Trying ${picks.length} matching shades on your face…`, 1);
+      const picks = profile
+        ? pickCalibrated(target.hex, profile.shift, { families: 2, allowed, finish: lookFinish })
+        : pickCandidates(lookCheck.hex, { families: 2, allowed, finish: lookFinish });
+      const round1 = await tryAndMeasure(
+        picks,
+        profile ? `Using your lip profile: trying ${picks.length} shades on your face…` : `Trying ${picks.length} matching shades on your face…`,
+        !!profile,
+      );
+      let rounds = 1;
       let measured = round1.measured;
       const failed = [...round1.failed];
       if (!measured.length) throw new Error("None of the try-ons worked. Please try again.");
@@ -212,7 +230,8 @@ export default function Home() {
       if (closest >= DUPE_DELTA_E) {
         const { picks: refined } = refineCandidates(target.hex, measured, { families: 1, allowed, finish: lookFinish });
         if (refined.length) {
-          const round2 = await tryAndMeasure(refined, "Calibrating to your lips: trying adjusted shades…", 2);
+          const round2 = await tryAndMeasure(refined, "Calibrating to your lips: trying adjusted shades…", true);
+          rounds = 2;
           measured = [...measured, ...round2.measured];
           failed.push(...round2.failed);
         }
@@ -220,13 +239,27 @@ export default function Home() {
 
       const proof = buildProof(target.hex, measured, lookFinish).map((c) => {
         const m = measured.find((x) => x.product.id === c.product.id)!;
-        return { ...c, crop: m.crop, image: m.image, round: m.round };
+        return { ...c, crop: m.crop, image: m.image, calibrated: m.calibrated };
       });
       setCards(proof);
       setStage("proof");
       const best = bestBuy(proof);
       const failNote = failed.length ? ` ${failed.length} shade${failed.length > 1 ? "s" : ""} couldn't be tried (${failed.map((p) => p.shade).join(", ")}).` : "";
-      setStatus((best ? `Best buy: ${label(best.product)}, ${best.score}% match for $${best.product.price}.` : "") + failNote);
+
+      // Learn from this look: fold how colors shifted on these lips into the saved profile.
+      let profileNote = "";
+      const shift = estimateShift(target.hex, measured);
+      if (shift && profileKey) {
+        const updated = mergeProfile(profile, shift);
+        if (saveProfile(profileKey, updated)) {
+          setProfile(updated);
+          profileNote = ` Lip profile saved (${updated.looks} look${updated.looks > 1 ? "s" : ""}).`;
+        }
+      }
+      const tryOns = measured.length + failed.length;
+      setEffort({ rounds, tryOns, usedProfile: !!profile });
+      const effortNote = ` Found in ${rounds} round${rounds > 1 ? "s" : ""} (${tryOns} try-ons).`;
+      setStatus((best ? `Best buy: ${label(best.product)}, ${best.score}% match for $${best.product.price}.` : "") + effortNote + failNote + profileNote);
       setTimeout(() => resultsRef.current?.focus(), 0);
     } catch (e) {
       setStage("preview");
@@ -277,6 +310,7 @@ export default function Home() {
   function restart() {
     if (shareImage) URL.revokeObjectURL(shareImage.url);
     setShareImage(null);
+    setEffort(null);
     setStage("upload"); setStart(null); setLipsOnly(""); setTarget(null); setCards([]); setShowFull(false); setError(""); setStatus("");
   }
 
@@ -368,6 +402,20 @@ export default function Home() {
               {stage === "trying" ? "Trying shades on you…" : "Find it for less"}
             </button>
           ) : null}
+          {profile && profileKey && (
+            <p className="profile-note">
+              <span>
+                <strong>Lip profile saved</strong> from {profile.looks} earlier look{profile.looks > 1 ? "s" : ""}: the first try-ons are already
+                calibrated to your lips, so you usually need fewer. Stored only in this browser, no photo.
+              </span>
+              <button
+                onClick={() => { forgetProfile(profileKey); setProfile(null); setStatus("Lip profile deleted from this browser."); }}
+                disabled={stage === "trying"}
+              >
+                Forget my lip profile
+              </button>
+            </p>
+          )}
         </section>
       )}
 
@@ -375,6 +423,12 @@ export default function Home() {
       {cards.length > 0 && (
         <section className="panel" aria-labelledby="s3">
           <h2 id="s3" tabIndex={-1} ref={resultsRef}><span className="step">3</span> Proven on your lips</h2>
+          {effort && (
+            <p className="effort">
+              Found in <strong>{effort.rounds} round{effort.rounds > 1 ? "s" : ""}</strong> · {effort.tryOns} try-ons
+              {effort.usedProfile ? " · using your lip profile" : ""}
+            </p>
+          )}
           {best && (
             <p className="best">
               <strong>Best buy:</strong> {label(best.product)}: {best.score}% match to the look, <strong>${best.product.price}</strong>
@@ -473,7 +527,7 @@ function ShadeGroupCard({ group, targetCrop, targetHex, lookFinish, bestId, onAd
   bestId?: string;
   onAdd: (p: LipProduct) => void;
 }) {
-  const calibrated = group.variants.some((v) => v.round === 2);
+  const calibrated = group.variants.some((v) => v.calibrated);
   const headingId = `shade-${group.family}`;
   return (
     <li className={`group ${group.variants.some((v) => v.product.id === bestId) ? "is-best" : ""}`}>
