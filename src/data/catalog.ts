@@ -32,10 +32,11 @@ export const catalog: Product[] = [
 // shifted slightly in Lab space: small shifts are true dupes, larger ones are
 // "marketed as a dupe" but measurably different, so the app can be honest.
 
-type Tier = { brand: string; line: string; price: number; idPrefix: string };
-const LUXE: Tier = { brand: "Maison Aurelle", line: "Rouge Couture", price: 42, idPrefix: "aur" };
-const MID: Tier = { brand: "Lumen", line: "Velvet Lip", price: 18, idPrefix: "lum" };
-const BASIC: Tier = { brand: "Daily Basics", line: "Color Stick", price: 6, idPrefix: "db" };
+/** Each tier has a range of prices; a shade's price within the range is fixed per family. */
+type Tier = { brand: string; line: string; prices: number[]; idPrefix: string };
+const LUXE: Tier = { brand: "Maison Aurelle", line: "Rouge Couture", prices: [34, 38, 42, 44, 48, 52, 58], idPrefix: "aur" };
+const MID: Tier = { brand: "Lumen", line: "Velvet Lip", prices: [14, 15, 16, 18, 20, 22, 24], idPrefix: "lum" };
+const BASIC: Tier = { brand: "Daily Basics", line: "Color Stick", prices: [4, 5, 6, 7, 8, 9, 10, 12], idPrefix: "db" };
 
 type Family = {
   key: string;
@@ -63,7 +64,7 @@ const FAMILIES: Family[] = [
   { key: "peach", shade: "Peach Fizz", hex: "#E39A7D", texture: "sheer", aliases: ["peach"], mid: [-1, 0.5, -1], basic: [2, 1, -2] },
 ];
 
-function shift(hex: string, [dL, da, db]: [number, number, number]): string {
+export function shift(hex: string, [dL, da, db]: [number, number, number]): string {
   const { L, a, b } = hexToLab(hex);
   return labToHex({ L: L + dL, a: a + da, b: b + db });
 }
@@ -77,14 +78,14 @@ const GRID_C = [16, 28, 40, 52];
 const GRID_TEXTURES: LipTexture[] = ["matte", "satin", "gloss", "sheer"];
 
 /** Deterministic pseudo-random in [0, 1) from a string, so the catalog never changes between runs. */
-function seeded(key: string, salt: number): number {
+export function seeded(key: string, salt: number): number {
   let h = 2166136261 ^ salt;
   for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
   return ((h >>> 0) % 10000) / 10000;
 }
 
 /** Random Lab offset of roughly `size` length, deterministic per key. */
-function offset(key: string, size: number, salt: number): [number, number, number] {
+export function offset(key: string, size: number, salt: number): [number, number, number] {
   const theta = seeded(key, salt) * Math.PI * 2, phi = (seeded(key, salt + 1) - 0.5) * Math.PI;
   return [size * Math.sin(phi), size * Math.cos(phi) * Math.cos(theta), size * Math.cos(phi) * Math.sin(theta)];
 }
@@ -120,7 +121,7 @@ const dupeCatalog: LipProduct[] = [...FAMILIES, ...GRID_FAMILIES].flatMap((f) =>
     shade: f.shade,
     hex,
     texture: f.texture,
-    price: tier.price,
+    price: tier.prices[Math.floor(seeded(`${tier.idPrefix}:${f.key}`, 17) * tier.prices.length)],
     aliases: f.aliases,
     family: f.key,
   })),

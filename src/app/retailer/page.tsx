@@ -1,11 +1,11 @@
-// Retailer-facing page: the business case for "Steal the Look, for Less".
+// Retailer-facing page: the business case for "Pretty Smart".
 
-export const metadata = { title: "Steal the Look, for Less: for retailers" };
+export const metadata = { title: "Pretty Smart: for retailers" };
 
 export default function Retailer() {
   return (
     <main className="wide">
-      <h1>Steal the Look, <em>for Less</em>: for retailers</h1>
+      <h1>Pretty <em>Smart</em>: for retailers</h1>
       <p className="tagline">Turn inspiration photos into carts, with color matches you can prove.</p>
 
       <section className="panel" aria-labelledby="problem">
@@ -37,10 +37,19 @@ export default function Retailer() {
         <p className="hint">Impact figures will be measured in pilot tests; none are claimed here yet.</p>
       </section>
 
+      <section className="panel" aria-labelledby="audit-link">
+        <h2 id="audit-link">Dupe Audit</h2>
+        <p>
+          Check whether your lower-priced shades really match their premium counterparts on real people&apos;s lips. Upload your shade
+          pairs and a few consenting test faces, and get a report of where each dupe holds up and where it doesn&apos;t.
+        </p>
+        <p><a className="button-like" href="/retailer/audit">Open the Dupe Audit</a></p>
+      </section>
+
       <section className="panel" aria-labelledby="embed">
         <h2 id="embed">Integration (planned)</h2>
         <p>Your catalog needs one color value per shade. A drop-in widget would look like this (placeholder, not yet built):</p>
-        <pre><code>{`<script src="https://steal-the-look.example/embed.js"
+        <pre><code>{`<script src="https://pretty-smart.example/embed.js"
         data-catalog="your-catalog-id" defer></script>`}</code></pre>
       </section>
 

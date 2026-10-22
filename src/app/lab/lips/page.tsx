@@ -1,5 +1,5 @@
 "use client";
-// Feasibility lab for "Steal the Look, for Less" (lipstick only).
+// Feasibility lab for "Pretty Smart" (lipstick).
 // Upload photos -> find lips -> measure color -> rank catalog shades -> compare any two.
 // Runs entirely in the browser: no YouCam units are spent here.
 
@@ -59,7 +59,7 @@ export default function LipLab() {
     <main style={{ maxWidth: "60rem" }}>
       <h1>Lip color lab</h1>
       <p className="tagline">
-        Feasibility test for &ldquo;Steal the Look, for Less&rdquo;. Runs in your browser; no API units are used.
+        Feasibility test for &ldquo;Pretty Smart&rdquo;. Runs in your browser; no API units are used.
       </p>
 
       <section className="panel">

@@ -39,3 +39,15 @@ export function lipPalette(product: Pick<LipProduct, "hex" | "texture">): LipPal
   }
   return p;
 }
+
+// --- Blush ----------------------------------------------------------------------
+
+export type BlushTexture = "matte" | "satin" | "shimmer";
+
+/** YouCam blush palette with the fields each finish requires (satin/shimmer need glowStrength; shimmer needs shimmer fields). */
+export function blushPalette(hex: string, texture: BlushTexture = "matte", colorIntensity = 60) {
+  const p: Record<string, string | number> = { color: hex, texture, colorIntensity };
+  if (texture === "satin" || texture === "shimmer") p.glowStrength = 40;
+  if (texture === "shimmer") Object.assign(p, { shimmerColor: "#FFF4E6", shimmerDensity: 40 });
+  return p;
+}

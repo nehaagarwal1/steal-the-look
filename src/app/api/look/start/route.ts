@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { isDemoMode, startSession } from "@/lib/look-session";
 import { errorResponse } from "../errors";
+import { sourceFromFilename } from "@/lib/synthetic-faces";
 
 export const runtime = "nodejs";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -23,7 +24,8 @@ export async function POST(req: Request) {
     if (selfie.size > MAX_BYTES || look.size > MAX_BYTES) {
       return NextResponse.json({ error: "Photos must be under 10 MB." }, { status: 400 });
     }
-    const result = await startSession(Buffer.from(await selfie.arrayBuffer()), Buffer.from(await look.arrayBuffer()));
+    const lookSynthetic = sourceFromFilename(look.name) === "synthetic";
+    const result = await startSession(Buffer.from(await selfie.arrayBuffer()), Buffer.from(await look.arrayBuffer()), lookSynthetic);
     return NextResponse.json(result);
   } catch (err) {
     return errorResponse(err);

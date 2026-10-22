@@ -3,7 +3,7 @@
 // nor the week-1 CLI can drain the account by accident.
 //
 // Costs measured with `npm run week1 -- costs` (2026-10-12):
-//   skin-tone-analysis 20 · makeup-vto 1 · cloth-v4 2 · mu-transfer 2   (units per result image)
+//   skin-tone-analysis 20 · makeup-vto 1 · cloth-v4 2 · mu-transfer 2 · text-to-image/youcam 1   (units per result image)
 
 import "server-only";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -14,6 +14,9 @@ export const UNIT_COSTS: Record<string, number> = {
   "makeup-vto": 1,
   "cloth-v4": 2,
   "mu-transfer": 2,
+  "text-to-image/youcam": 1,
+  "hair-color": 1,
+  "hair-transfer": 2, // AI Hairstyle Generator v2.1 (custom reference), per the YouCam docs
 };
 
 const LEDGER = path.join(process.cwd(), ".data", "units.json");

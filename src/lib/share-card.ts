@@ -2,7 +2,7 @@
 // Draws the shareable result card (1080x1350, portrait for social feeds) in the browser.
 // Only lip close-ups are used, so the shared image doesn't show the whole face.
 
-import { finishLine, priceHeadline, type ShareFacts } from "./share";
+import { finishLine, priceHeadline, priceLine, type ShareFacts } from "./share";
 
 const W = 1080, H = 1350;
 const BG = "#14141A", FG = "#FFFFFF", MUTED = "#B9B9C6", ACCENT = "#8FB3FF", OK = "#7EE2A0";
@@ -60,8 +60,8 @@ export async function renderShareCard(f: ShareFacts, lookLips: string, matchLips
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
 
-  centered(ctx, "Steal the Look,", 130, 64, FG, 800);
-  centered(ctx, "for Less", 205, 64, ACCENT, 800);
+  centered(ctx, "Pretty Smart", 130, 72, FG, 800);
+  centered(ctx, "Pretty looks. Smart picks.", 205, 44, ACCENT, 700);
 
   // Side-by-side lips
   const boxW = 450, boxH = 300, gap = 60, top = 270;
@@ -74,13 +74,15 @@ export async function renderShareCard(f: ShareFacts, lookLips: string, matchLips
   ctx.fillText("The look on me", left + boxW / 2, top + boxH + 52);
   ctx.fillText(`My $${f.price} match`, left + boxW * 1.5 + gap, top + boxH + 52);
 
-  centered(ctx, priceHeadline(f), 800, 150, FG, 900);
-  centered(ctx, `${f.score}% match on my lips`, 890, 54, ACCENT, 800);
+  centered(ctx, priceHeadline(f), 790, 120, FG, 900);
+  const line = priceLine(f);
+  if (line) centered(ctx, line, 850, 40, MUTED, 600);
+  centered(ctx, `${f.score}% match on my lips`, 920, 50, ACCENT, 800);
   centered(ctx, f.shade, 990, 46, FG, 700);
   centered(ctx, f.brand, 1050, 36, MUTED, 500);
   let y = 1130;
   if (f.premiumPrice && f.trueDupe) {
-    centered(ctx, `✓ Looks the same as the $${f.premiumPrice} version on me`, y, 36, OK, 700);
+    centered(ctx, `✓ Twin of the $${f.premiumPrice} one on me`, y, 36, OK, 700);
     y += 60;
   }
   const finish = finishLine(f);

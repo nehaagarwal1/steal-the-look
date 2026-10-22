@@ -12,7 +12,7 @@ describe("explainShade", () => {
   it("says when it's the same color", () => {
     const e = explainShade(target, target);
     expect(e.difference).toBe("Practically the same color as the look.");
-    expect(e.takeaway).toBe("Looks the same on you.");
+    expect(e.takeaway).toBe("Looks the same on me.");
   });
 
   it("describes a deeper shade", () => {
@@ -44,6 +44,6 @@ describe("explainShade", () => {
 
   it("matches the takeaway to the size of the difference", () => {
     expect(explainShade(target, shifted(-3, 0, 0)).takeaway).toBe("Most people won't notice the difference.");
-    expect(explainShade(target, shifted(-15, 0, 0)).takeaway).toBe("A clearly different color on you.");
+    expect(explainShade(target, shifted(-15, 0, 0)).takeaway).toBe("A clearly different color on me.");
   });
 });

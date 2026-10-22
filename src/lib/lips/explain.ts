@@ -34,15 +34,22 @@ export type Explanation = {
  * Lightness: deeper / lighter. Hue: warmer (toward orange) / cooler (toward pink-blue).
  * Chroma: more / less vivid. Only differences big enough to matter are mentioned.
  */
-export function explainShade(targetHex: string, shadeHex: string): Explanation {
+/** Hue difference as an arc on the color wheel, in the same units as lightness and chroma (signed: + = warmer). */
+export function hueDifference(targetHex: string, shadeHex: string): number {
   const t = hexToLab(targetHex), s = hexToLab(shadeHex);
   const tC = Math.hypot(t.a, t.b), sC = Math.hypot(s.a, s.b);
-  const tH = (Math.atan2(t.b, t.a) * 180) / Math.PI, sH = (Math.atan2(s.b, s.a) * 180) / Math.PI;
-  let dHue = sH - tH;
+  let dHue = ((Math.atan2(s.b, s.a) - Math.atan2(t.b, t.a)) * 180) / Math.PI;
   if (dHue > 180) dHue -= 360;
   if (dHue < -180) dHue += 360;
-  // Hue difference expressed in the same units as lightness and chroma (arc length on the color wheel).
-  const hueMag = 2 * Math.sqrt(tC * sC) * Math.sin((Math.abs(dHue) * Math.PI) / 360);
+  return Math.sign(dHue) * 2 * Math.sqrt(tC * sC) * Math.sin((Math.abs(dHue) * Math.PI) / 360);
+}
+
+/** `overallDeltaE`: the full on-face difference (incl. light/dark parts) when known; the takeaway follows it. */
+export function explainShade(targetHex: string, shadeHex: string, overallDeltaE?: number): Explanation {
+  const t = hexToLab(targetHex), s = hexToLab(shadeHex);
+  const tC = Math.hypot(t.a, t.b), sC = Math.hypot(s.a, s.b);
+  const dHue = hueDifference(targetHex, shadeHex);
+  const hueMag = Math.abs(dHue);
 
   const parts = [
     { order: 0, mag: Math.abs(s.L - t.L), word: s.L < t.L ? "deeper" : "lighter" },
@@ -62,12 +69,12 @@ export function explainShade(targetHex: string, shadeHex: string): Explanation {
     difference = `${lead[0].toUpperCase()}${lead.slice(1)} ${words.join(" and ")} than the look.`;
   }
 
-  const dE = deltaE2000(targetHex, shadeHex);
+  const dE = overallDeltaE ?? deltaE2000(targetHex, shadeHex);
   const takeaway =
-    dE < 2 ? "Looks the same on you."
+    dE < 2 ? "Looks the same on me."
     : dE < 4 ? "Most people won't notice the difference."
     : dE < 7 ? "Close, but you may see it side by side."
-    : "A clearly different color on you.";
+    : "A clearly different color on me.";
 
   return { difference, takeaway, sentence: `${difference} ${takeaway}` };
 }

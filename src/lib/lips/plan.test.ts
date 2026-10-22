@@ -33,7 +33,7 @@ describe("buildProof", () => {
     const cards = buildProof(target, measured);
     expect(cards[0].product.id).toBe("lum-mauve");
     const db = cards.find((c) => c.product.id === "db-berry")!;
-    expect(db.savings).toBe(36);
+    expect(db.savings).toBe(lip("aur-berry").price - lip("db-berry").price);
     expect(db.dupe?.isTrueDupe).toBe(true);
   });
 
@@ -116,5 +116,44 @@ describe("lip profile", () => {
     expect(p2.looks).toBe(2);
     expect(p2.shift.L).toBeCloseTo(-9);
     expect(p2.shift.a).toBeCloseTo(-3);
+  });
+});
+
+describe("light and dark parts of the lips", () => {
+  // Shaped like the 2026-10-21 metallic red look: the middle color matches a flat matte red,
+  // but the look's light parts are much brighter and its dark parts much darker.
+  const look = { hex: "#7A2119", tones: { dark: "#4A0E0A", light: "#B03A28" } };
+  const flat = { product: lip("aur-berry"), hex: "#7A231B", tones: { dark: "#6E1E17", light: "#86281F" } };
+
+  it("doesn't call a flat shade a near-perfect match for a two-tone look", () => {
+    const [card] = buildProof(look.hex, [flat], undefined, look.tones);
+    expect(card.tones!.middle).toBeLessThan(2);
+    expect(card.deltaE).toBeGreaterThan(6);
+    expect(card.score).toBeLessThan(70);
+    expect(card.tones!.flatter).toBe(true);
+  });
+
+  it("keeps the old behavior when tones aren't measured", () => {
+    const [card] = buildProof(look.hex, [{ product: flat.product, hex: flat.hex }]);
+    expect(card.tones).toBeUndefined();
+    expect(card.deltaE).toBeLessThan(2);
+  });
+});
+
+describe("bestBuy and hue", () => {
+  // Shaped like the 2026-10-21 orange-red look: a cheap berry scores about as well as a
+  // pricier brick red, but its hue is clearly cooler than the look.
+  const target = "#7A2119";
+  const card = (id: string, hex: string, deltaE: number) => ({ ...buildProof(hex, [{ product: lip(id), hex }])[0], hex, deltaE });
+  const berry = card("db-berry", "#6B1D2C", 3.0);
+  const brick = card("aur-berry", "#72221A", 3.6);
+
+  it("doesn't recommend a cheaper shade whose hue is clearly further off", () => {
+    expect(berry.product.price).toBeLessThan(brick.product.price);
+    expect(bestBuy([berry, brick], undefined, target)?.product.id).toBe(brick.product.id);
+  });
+
+  it("without the look color, price decides as before", () => {
+    expect(bestBuy([berry, brick])?.product.id).toBe(berry.product.id);
   });
 });

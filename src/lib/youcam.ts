@@ -12,7 +12,7 @@ import "server-only";
 import sharp from "sharp";
 import type { LipProduct } from "@/data/catalog";
 import { assertCanSpend, recordSpend } from "./units";
-import { lipPalette } from "./lips/palette";
+import { blushPalette, lipPalette, type BlushTexture } from "./lips/palette";
 
 const BASE = process.env.YOUCAM_BASE_URL ?? "https://yce-api-01.makeupar.com";
 
@@ -89,15 +89,15 @@ type TaskStatus<R> = {
   data: { task_status: "running" | "success" | "error"; error?: string; error_message?: string; results?: R };
 };
 
-async function runTask<R>(feature: string, body: Record<string, unknown>, timeoutMs = 60_000): Promise<R> {
+async function runTask<R>(feature: string, body: Record<string, unknown>, timeoutMs = 60_000, apiVersion = "v2.0"): Promise<R> {
   assertCanSpend(feature);
-  const started = await call<{ data: { task_id: string } }>("POST", `/s2s/v2.0/task/${feature}`, body);
+  const started = await call<{ data: { task_id: string } }>("POST", `/s2s/${apiVersion}/task/${feature}`, body);
   const taskId = started.data.task_id;
   const deadline = Date.now() + timeoutMs;
   let delay = 800;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, delay));
-    const status = await call<TaskStatus<R>>("GET", `/s2s/v2.0/task/${feature}/${taskId}`);
+    const status = await call<TaskStatus<R>>("GET", `/s2s/${apiVersion}/task/${feature}/${taskId}`);
     if (status.data.task_status === "success") {
       recordSpend(feature); // YouCam bills per successful result image
       return status.data.results as R;
@@ -112,7 +112,8 @@ async function runTask<R>(feature: string, body: Record<string, unknown>, timeou
 
 // --- Features --------------------------------------------------------------
 
-export async function tryOnLipstick(fileId: string, product: LipProduct): Promise<{ url: string }> {
+/** Applies a lipstick shade. Only its color and finish are sent to YouCam. */
+export async function tryOnLipstick(fileId: string, product: Pick<LipProduct, "hex" | "texture">): Promise<{ url: string }> {
   return runTask("makeup-vto", {
     src_file_id: fileId,
     version: "1.0",
@@ -127,12 +128,66 @@ export async function tryOnLipstick(fileId: string, product: LipProduct): Promis
   });
 }
 
+/**
+ * AI Image Generator V2 (text to image), 1 unit. Portrait 3:4 by default.
+ * Prompt rewriting is off so the audit requirements in the prompt are kept exactly.
+ */
+export async function generateImage(
+  prompt: string,
+  { negativePrompt, size = "1104*1472" }: { negativePrompt?: string; size?: "1664*928" | "1472*1104" | "1328*1328" | "1104*1472" | "928*1664" } = {},
+): Promise<{ url: string }> {
+  return runTask(
+    "text-to-image/youcam",
+    { model: "youcam-image-v2", prompt, ...(negativePrompt ? { negative_prompt: negativePrompt } : {}), size, prompt_extend: false },
+    120_000,
+  );
+}
+
+/** Applies blush with the basic one-color placement pattern ("1color1" from YouCam's blush.json). 1 unit. */
+export async function tryOnBlush(fileId: string, blush: { hex: string; texture?: BlushTexture; intensity?: number }): Promise<{ url: string }> {
+  return runTask("makeup-vto", {
+    src_file_id: fileId,
+    version: "1.0",
+    effects: [{ category: "blush", pattern: { name: "1color1" }, palettes: [blushPalette(blush.hex, blush.texture, blush.intensity)] }],
+  });
+}
+
 /** Makeup Transfer only accepts images up to 1024px on the long side, one full frontal face. */
 export const TRANSFER_MAX_SIDE = 1024;
 
 /** Copies the makeup look from `refFileId` (inspiration photo) onto `srcFileId` (the shopper). 2 units. */
 export async function transferMakeup(srcFileId: string, refFileId: string): Promise<{ url: string }> {
   return runTask("mu-transfer", { src_file_id: srcFileId, ref_file_id: refFileId });
+}
+
+/**
+ * AI Hairstyle Generator v2.1 with a reference photo: copies the hairstyle from `refFileId` onto `srcFileId`. 2 units.
+ * Needs a single frontal face (pitch within ±10°), visible shoulders and hair that isn't too short; long side ≤ 1024px.
+ * `hairColor`: "ref" also copies the reference's hair color, "src" keeps the shopper's own.
+ */
+export async function transferHair(srcFileId: string, refFileId: string, hairColor: "ref" | "src" = "ref"): Promise<{ url: string }> {
+  return runTask("hair-transfer", { src_file_id: srcFileId, ref_file_id: refFileId, hair_color: hairColor }, 120_000, "v2.1");
+}
+
+/** Full strength: at 65 the tint barely showed on dark brows (2026-10-21). */
+export const BROW_INTENSITY = 100;
+
+/** Brow color only (keeps the shopper's brow shape), via makeup-vto. 1 unit. */
+export async function tryOnBrowColor(fileId: string, hex: string, intensity = BROW_INTENSITY): Promise<{ url: string }> {
+  return runTask("makeup-vto", {
+    src_file_id: fileId,
+    version: "1.0",
+    effects: [{ category: "eyebrows", pattern: { type: "color" }, palettes: [{ color: hex, colorIntensity: intensity, texture: "matte" }] }],
+  });
+}
+
+/** Hair Color try-on (full mode) with a dye color. 1 unit. Long side < 1920px. */
+export async function tryOnHairColor(fileId: string, dye: { hex: string; intensity?: number; shine?: number }): Promise<{ url: string }> {
+  return runTask("hair-color", {
+    src_file_id: fileId,
+    pattern: { name: "full" },
+    palettes: [{ color: dye.hex, color_intensity: dye.intensity ?? 85, shine_intensity: dye.shine ?? 40 }],
+  });
 }
 
 /** Account unit balance. Response shape per the YouCam docs: results[] of { id, type, amount, expiry }. Free to call. */
@@ -150,6 +205,15 @@ const FACE_ERROR_HINTS: Record<string, string> = {
   lip_occluded: "the lips are covered",
 };
 
+/** Hairstyle Generator errors (no src/ref prefix in the codes). */
+const HAIR_ERROR_HINTS: Record<string, string> = {
+  error_no_shoulder: "Hairstyle: your shoulders need to be visible. Use a photo that shows head and shoulders.",
+  error_hair_too_short: "Hairstyle: the hair in the photo is too short (or tied back) to restyle.",
+  error_face_pose: "Hairstyle: the head is tilted up or down too much. Hold the camera at eye level.",
+  error_large_face_angle: "Hairstyle: the face is turned too far. Use a straight-on photo.",
+  error_insufficient_landmarks: "Hairstyle: the face and shoulders couldn't be found clearly.",
+};
+
 export function explainYouCamError(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
   const code = (err as YouCamError).code ?? err.message;
@@ -157,6 +221,7 @@ export function explainYouCamError(err: unknown): string {
   if (m && FACE_ERROR_HINTS[m[2]]) {
     return `${m[1] === "src" ? "Your selfie" : "The inspiration photo"}: ${FACE_ERROR_HINTS[m[2]]}. (${code})`;
   }
+  if (HAIR_ERROR_HINTS[code]) return `${HAIR_ERROR_HINTS[code]} (${code})`;
   if (code.startsWith("error_inappropriate_ref")) return `The inspiration photo: hair is too close to the eyes, or the face isn't frontal enough. (${code})`;
   return err.message;
 }

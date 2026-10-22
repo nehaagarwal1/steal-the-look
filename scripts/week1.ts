@@ -5,6 +5,10 @@
 //   npm run week1 -- units                       units spent so far by this project (free)
 //   npm run week1 -- tryon <selfie> [productId]  one real lipstick try-on (1 unit)
 //   npm run week1 -- transfer <selfie> <look>    copy a makeup look onto the selfie (2 units)
+//   npm run week1 -- blush <selfie> <#hex> [matte|satin|shimmer] [intensity]   one blush try-on (1 unit)
+//   npm run week1 -- faces [all | preset ids…]    AI-generated test faces into selfies/ (1 unit each)
+//   npm run week1 -- face "<description>"        one AI face from your own description (1 unit)
+//   npm run week1 -- looks [all | preset ids…]    AI-generated makeup "look" photos (lipstick, blush, hair) into selfies/ (1 unit each)
 //
 // Commands that spend units print an estimate and only run with --yes.
 // Results go to week1-results/ (git-ignored: they show real faces).
@@ -12,8 +16,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
-  TRANSFER_MAX_SIDE, creditBalance, explainYouCamError, featureCosts, transferMakeup, tryOnLipstick, uploadImage,
+  TRANSFER_MAX_SIDE, creditBalance, explainYouCamError, featureCosts, generateImage, transferMakeup, tryOnBlush, tryOnLipstick, uploadImage,
 } from "@/lib/youcam";
+import { FACE_PRESETS, facePrompt, LOOK_NEGATIVE_PROMPT, LOOK_PREFIX, LOOK_PRESETS, lookPrompt, NEGATIVE_PROMPT, SYNTHETIC_PREFIX } from "@/lib/synthetic-faces";
 import { catalog, getProduct } from "@/data/catalog";
 import { UNIT_COSTS, budget, unitsRemaining, unitsSpent } from "@/lib/units";
 
@@ -111,18 +116,85 @@ async function transfer(selfie: string | undefined, inspiration: string | undefi
   console.log(`✓ Real mu-transfer call worked. Result saved to ${out}.`);
 }
 
+/** One real blush try-on, saved to week1-results/. */
+async function blush(selfie: string | undefined, hex: string | undefined, texture = "matte", intensity = "60") {
+  const usage = "Usage: npm run week1 -- blush <selfie.jpg> <#hex> [matte|satin|shimmer] [intensity 0-100] --yes";
+  requireFile(selfie, usage);
+  if (!hex || !/^#[0-9A-Fa-f]{6}$/.test(hex)) throw new Error(`${usage}\nColor must look like #E58A8A`);
+  if (!["matte", "satin", "shimmer"].includes(texture)) throw new Error(usage);
+  requireConfirm(`1 blush try-on (${hex}, ${texture})`, UNIT_COSTS["makeup-vto"]);
+  const fileId = await uploadImage(readFileSync(selfie!), path.basename(selfie!), TRANSFER_MAX_SIDE);
+  const { url } = await tryOnBlush(fileId, { hex, texture: texture as "matte" | "satin" | "shimmer", intensity: Number(intensity) });
+  const out = path.join(OUT_DIR, `blush-${hex.slice(1)}-${texture}-${Date.now()}.jpg`);
+  await download(url, out);
+  console.log(`✓ Real blush try-on worked. Result saved to ${out}. Measure it in /lab/blush.`);
+}
+
+/** Generates synthetic test faces (YouCam AI Image Generator) into selfies/ with the synthetic- prefix. */
+async function faces(ids: string[]) {
+  const wanted = ids.length === 0 || ids.includes("all") ? FACE_PRESETS : FACE_PRESETS.filter((p) => ids.includes(p.id));
+  if (!wanted.length) throw new Error(`Unknown preset. Choose from: all, ${FACE_PRESETS.map((p) => p.id).join(", ")}`);
+  await generateFaces(wanted.map((p) => ({ id: p.id, person: p.description })));
+}
+
+async function face(description: string | undefined) {
+  if (!description?.trim()) throw new Error('Usage: npm run week1 -- face "a Southeast Asian man in his 60s with medium skin and brown-rose lips" --yes');
+  await generateFaces([{ id: "custom", person: description }]);
+}
+
+async function generateFaces(jobs: { id: string; person: string }[]) {
+  requireConfirm(`${jobs.length} AI-generated face${jobs.length > 1 ? "s" : ""}`, jobs.length * UNIT_COSTS["text-to-image/youcam"]);
+  mkdirSync("selfies", { recursive: true });
+  for (const job of jobs) {
+    process.stdout.write(`Generating ${job.id}… `);
+    try {
+      const { url } = await generateImage(facePrompt(job.person), { negativePrompt: NEGATIVE_PROMPT });
+      const out = path.join("selfies", `${SYNTHETIC_PREFIX}${job.id}-${Date.now()}.jpg`);
+      await download(url, out);
+      console.log(`✓ ${out}`);
+    } catch (err) {
+      console.log(`✗ ${explainYouCamError(err)}`);
+    }
+  }
+  console.log("Check each face in the lip lab before using it in an audit (lips found, one face, front-facing).");
+}
+
+/** Makeup "look" photos for the shopper flow: AI-generated, so no real person's photo is used. */
+async function looks(ids: string[]) {
+  const wanted = ids.length === 0 || ids.includes("all") ? LOOK_PRESETS : LOOK_PRESETS.filter((p) => ids.includes(p.id));
+  if (!wanted.length) throw new Error(`Unknown look. Choose from: all, ${LOOK_PRESETS.map((p) => p.id).join(", ")}`);
+  requireConfirm(`${wanted.length} AI-generated look photo${wanted.length > 1 ? "s" : ""}`, wanted.length * UNIT_COSTS["text-to-image/youcam"]);
+  mkdirSync("selfies", { recursive: true });
+  for (const look of wanted) {
+    process.stdout.write(`Generating ${look.id} (${look.label})… `);
+    try {
+      const { url } = await generateImage(lookPrompt(look), { negativePrompt: LOOK_NEGATIVE_PROMPT });
+      const out = path.join("selfies", `${LOOK_PREFIX}${look.id}-${Date.now()}.jpg`);
+      await download(url, out);
+      console.log(`✓ ${out}`);
+    } catch (err) {
+      console.log(`✗ ${explainYouCamError(err)}`);
+    }
+  }
+  console.log("Open each one, keep the ones with clear lipstick, visible blush, eyes uncovered and shoulders in view, and label them AI-generated wherever you show them.");
+}
+
 const commands: Record<string, () => Promise<void>> = {
   costs,
   balance,
   units,
   tryon: () => tryon(args[0], args[1]),
   transfer: () => transfer(args[0], args[1]),
+  faces: () => faces(args),
+  blush: () => blush(args[0], args[1], args[2], args[3]),
+  face: () => face(args.join(" ")),
+  looks: () => looks(args),
 };
 
 const run = commands[command ?? ""];
 if (!run) {
   if (command) console.log(`Unknown command "${command}".`);
-  console.log("Usage: npm run week1 -- <costs | balance | units | tryon <selfie> [productId] | transfer <selfie> <look>> [--yes]");
+  console.log("Usage: npm run week1 -- <costs | balance | units | tryon <selfie> [productId] | transfer <selfie> <look> | faces [all|ids…] | face \"<description>\" | looks [all|ids…]>  [--yes]");
   process.exit(1);
 }
 run().catch((err) => {

@@ -101,7 +101,7 @@ pre { overflow-x: auto; background: var(--bg); border: 1px solid var(--border); 
   * { animation: none !important; transition: none !important; }
 }
 
-/* --- Steal the Look, for Less --- */
+/* --- Pretty Smart --- */
 main.wide { max-width: 64rem; }
 h1 em { font-style: normal; color: var(--accent); }
 .banner { background: var(--panel); border: 2px dashed var(--accent); border-radius: 10px; padding: 0.6rem 1rem; }
@@ -187,3 +187,72 @@ a.button-like { text-decoration: none; }
 .profile-note span { flex: 1 1 18rem; }
 
 .effort { color: var(--muted); margin-top: -0.25rem; }
+
+/* Dupe Audit */
+.pair-list, .face-list { list-style: none; padding: 0; display: grid; gap: 0.35rem; }
+.pair-list .swatch { display: inline-block; vertical-align: middle; }
+.face-list { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.75rem; margin: 0.75rem 0; }
+.face-list li { display: grid; gap: 0.3rem; }
+.face-list img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 8px; }
+.table-wrap { overflow-x: auto; }
+table.audit { border-collapse: collapse; width: 100%; min-width: 36rem; }
+.audit th, .audit td { border: 1px solid var(--border); padding: 0.5rem; text-align: left; vertical-align: top; }
+.audit td { text-align: center; }
+.audit thead th { background: var(--panel); }
+.cell-ok { background: rgba(27, 127, 59, 0.18); }
+.cell-close { background: rgba(178, 106, 0, 0.2); }
+.cell-no { background: rgba(176, 0, 32, 0.2); }
+
+/* Color dots inside table cells and labels must be inline blocks, or they collapse to thin lines. */
+.audit .swatch, .pair-list .swatch { display: inline-block; width: 1.1rem; height: 1.1rem; vertical-align: middle; margin-right: 0.3rem; }
+
+.generator { border: 2px dashed var(--border); border-radius: 10px; padding: 0.5rem 0.9rem; margin: 0.75rem 0; }
+.text-input { width: 100%; min-height: 48px; font: inherit; padding: 0.4rem 0.6rem; border: 2px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); margin: 0.35rem 0 0.5rem; }
+.face-list select { font: inherit; min-height: 40px; }
+
+.face-list li { align-content: start; grid-template-rows: auto auto auto auto; }
+
+.blush-cta { margin-top: 1rem; }
+.variant img[alt*="cheeks"] { aspect-ratio: 3 / 1; }
+
+/* Close-up / full-face results switch */
+.view-switch { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.25rem 0 0.75rem; }
+.view-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button.pick[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.variant img.full, .variant img[alt*="cheeks"].full { aspect-ratio: auto; object-fit: contain; max-height: 28rem; background: #000; }
+.cart-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.35rem 0; }
+.cart-row button { padding: 0.2rem 0.7rem; font-size: 0.9rem; }
+.hair-box { margin: 1rem 0; padding: 1rem; border: 1px dashed var(--border, #555); border-radius: 10px; }
+.hair-box h3 { margin-top: 0; }
+.dye-swatches { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1rem; }
+.dye-swatches button { display: inline-flex; align-items: center; gap: 0.4rem; }
+.dye-swatches button[aria-pressed="true"] { border-color: var(--accent); outline: 2px solid var(--accent); }
+.dye-swatches .swatch { width: 1.1rem; height: 1.1rem; border-radius: 50%; display: inline-block; border: 1px solid #888; }
+.dye-variants { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.tabs { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.6rem 0; margin-bottom: 1rem; background: var(--bg, #000); border-bottom: 1px solid var(--border, #444); }
+.tabs button { padding: 0.5rem 0.9rem; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.tabs button:disabled { opacity: 0.45; }
+.hair-preview { margin: 0 0 1rem; }
+.hair-preview img { max-height: 26rem; max-width: 100%; border-radius: 10px; display: block; }
+.brow-options { display: grid; gap: 0.6rem; }
+.brow-option { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.6rem 0.8rem; border: 1px solid var(--border, #444); border-radius: 10px; }
+.brow-option.is-best { border-color: var(--accent); }
+.hair-layout { display: grid; gap: 1.25rem; }
+@media (min-width: 900px) {
+  .hair-layout { grid-template-columns: minmax(16rem, 22rem) 1fr; align-items: start; }
+  .hair-layout .hair-preview { position: sticky; top: 4.5rem; }
+}
+.brow-variants img { aspect-ratio: auto; object-fit: contain; }
+.greeting { font-size: 1.15rem; margin: 0.25rem 0 0; }
+.kept { color: #1b7f3b; }
+@media (prefers-color-scheme: dark) { .kept { color: #7ee2a0; } }
+.kept-counter { margin: 0 0 1rem; padding: 0.5rem 0.8rem; border-radius: 10px; border: 1px solid var(--border); display: inline-block; }
+.greeting-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 0.25rem; }
+.name-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.name-form input { padding: 0.35rem 0.6rem; max-width: 12rem; }
+.link-button { background: none; border: none; padding: 0; text-decoration: underline; cursor: pointer; color: inherit; }
+.twinning { margin: 0.5rem 0 1rem; }
+.twinning canvas { display: block; width: 100%; max-width: 22rem; height: auto; border-radius: 16px; margin: 0 auto 0.75rem; }
+.twinning .actions { justify-content: center; }
+.twinning .happy { text-align: center; margin-top: 1rem; }

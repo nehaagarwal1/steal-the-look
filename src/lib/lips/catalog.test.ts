@@ -5,6 +5,18 @@ import { deltaE2000 } from "@/lib/color";
 const lip = (id: string) => catalog.find((p): p is LipProduct => p.id === id)!;
 
 describe("dupe catalog", () => {
+  it("varies prices within each tier and keeps premium > mid > budget", () => {
+    const luxe = catalog.filter((p): p is LipProduct => p.id.startsWith("aur-"));
+    const prices = (prefix: string) => new Set(catalog.filter((p) => p.id.startsWith(prefix)).map((p) => p.price));
+    expect(prices("aur-").size).toBeGreaterThan(3);
+    expect(prices("lum-").size).toBeGreaterThan(3);
+    expect(prices("db-").size).toBeGreaterThan(3);
+    for (const l of luxe) {
+      expect(l.price).toBeGreaterThanOrEqual(34);
+      expect(lip(`db-${l.family}`).price).toBeLessThanOrEqual(12);
+    }
+  });
+
   it("covers typical lip colors densely (nearest shade within ~5)", () => {
     const luxe = catalog.filter((p): p is LipProduct => p.id.startsWith("aur-"));
     for (const hex of ["#893F4A", "#C25E63", "#9C3B2E", "#E39A7D", "#6B353A"]) {
