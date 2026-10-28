@@ -4,32 +4,28 @@
 
 Upload a selfie and a look you love. See the whole look on your own face, then find
 the lipstick, blush, hair color and brow color that match it, **proven on your own
-face**, and keep the difference: for every shade, the splurge and the smart version
+face**, and save while you play: for every shade, the splurge and the smart version
 are both tried on you, with an honest "twin or not" for the smart one.
 
 The app speaks in the shopper's voice ("Show me in this look", "My smart pick",
-"I keep $36"). Saving is framed as a smart choice, never as settling: both prices are
+"$36 saved into my kitty"). Saving is framed as a smart choice, never as settling: both prices are
 shown side by side, and when the smart version isn't a true twin, the app says the
 splurge is worth it. Built on the YouCam API for the
 [YouCam API Skin AI & eCommerce VTO Hackathon](https://youcam-api-skin-ai-ecommerce.devpost.com/).
-
-Retailers get a **Dupe Audit**: test premium-vs-budget shade pairs on several
-faces (real volunteers or AI-generated synthetic faces) before marketing a dupe.
 
 ## The shopper flow (tabs)
 
 | Tab | What happens | YouCam feature | Units |
 |---|---|---|---|
-| **1 My photos** | Selfie + look photo, checked in the browser (one face, lips found). Makeup Transfer puts the look on your face; preview shows **lips only** (toggle: full look). | Makeup Transfer | 2 |
-| **2 Lipstick** | Picks the closest shade families, tries premium + budget versions on your lips, learns how color shifts on *your* lips if nothing is close (round 2), proves each shade on-face. | Makeup VTO (lip color) | 4–6 |
-| **3 Blush** | Measures the color the look's blush adds to your cheeks, predicts and tries the closest shades, proves them. | Makeup VTO (blush) | 3–4 |
-| **4 Hair & brows** | 1) Copy the look's **hairstyle and hair color** as-is. 2) Optionally change the hair color: salon dye vs box dye, proven on your hair. 3) Brow color suggestion for the new hair, gel vs pencil, proven on your brows. | Hairstyle Generator v2.1, Hair Color, Makeup VTO (eyebrows) | 2 + 2 per color + 2 per brow shade |
-| **5 My look** | **Twinning ✨** reveal: the original look photo and **my picks combined on my own photo** slide in, lean toward each other and sparkle, with "Same look. I kept $X." Then "Happy with my look?" (**Love it 💖** → confetti and **Get my look**, or **Tweak it** → back to a tab). **Save as video** records the 6-second reveal in the browser (MP4 on Safari, WebM elsewhere; a picture if the browser can't record). | none (all in the browser) | 0 |
+| **📸 Me** | Selfie + look photo, checked in the browser (one face, lips found). Makeup Transfer puts the look on your face; preview shows **lips only** (toggle: full look). | Makeup Transfer | 2 |
+| **💄 Lips** | Picks the closest shade families, tries premium + budget versions on your lips, learns how color shifts on *your* lips if nothing is close (round 2), proves each shade on-face. | Makeup VTO (lip color) | 4–6 |
+| **🌸 Cheeks** | Measures the color the look's blush adds to your cheeks, predicts and tries the closest shades, proves them. | Makeup VTO (blush) | 3–4 |
+| **💇‍♀️ Hair & brows** | 1) Copy the look's **hairstyle and hair color** as-is. 2) Optionally change the hair color: salon dye vs box dye, proven on your hair. 3) Brow color suggestion for the new hair, gel vs pencil, proven on your brows. | Hairstyle Generator v2.1, Hair Color, Makeup VTO (eyebrows) | 2 + 2 per color + 2 per brow shade |
+| **✨ My glow-up** | **Twinning ✨** reveal: the original look photo and **my picks combined on my own photo** slide in, lean toward each other and sparkle, with "Same look. $X saved 💰" Then "Happy with my look?" ("Loving my glow-up?" **Love it 💖** → confetti and **Get my look**, or **Let me play more** → back to a tab). **Save as video** records the 6-second reveal in the browser (MP4 on Safari, WebM elsewhere; a picture if the browser can't record). | none (all in the browser) | 0 |
 
 Each try-on card shows a match %, a plain-language explanation ("Slightly deeper
-and cooler than the look"), the finish, and for smart versions: **✓ Twin of the $42
-splurge on me · I keep $36** or **✗ Not a true twin on me: the Maison Aurelle Rouge Couture is worth it
-here**. A counter shows the total kept ("💰 I've kept $82 so far").
+and cooler than the look"), the finish, and for smart versions: **✓ Just as gorgeous on me as the $42
+splurge 💅 · $36 saved 💰** or **✗ Not quite the same on me: the Maison Aurelle Rouge Couture is worth the splurge here 💖**. A "beauty kitty" shows the total saved ("💰 My beauty kitty: $82 saved so far").
 A **Close-ups / Full face** switch shows either the measured close-ups or your
 whole face. A shareable result card (lip close-ups only) can be downloaded.
 
@@ -61,22 +57,12 @@ from the chosen lipstick try-on + only the *change* the chosen brow and blush
 try-ons made. YouCam's try-on images are slightly brighter than the selfie, so
 copying pixels would paste brighter skin; adding the difference doesn't.
 
-## Retailer: Dupe Audit (`/retailer/audit`)
-
-- Shade pairs from a CSV (template provided) or from the catalog.
-- Up to 5 faces: real volunteers (consent required) and/or **synthetic faces** from the
-  YouCam AI Image Generator (6 regional presets or a custom description, 1 unit each,
-  labeled "synthetic" everywhere, saved and reused for free).
-- Result: on-face ΔE grid per pair and face, verdicts, and an evidence-gated insight
-  ("Fails on deeper natural lip tones", or "Borderline on every face"), hedged when
-  fewer than 5 faces. Export as CSV or JSON; **Save as demo report** for demo mode.
-
 ## Code map
 
 | Piece | File |
 |---|---|
 | Shopper flow (tabs, picks, cart) | `src/app/page.tsx` |
-| "I keep $X" vs the splurge version | `src/lib/kept.ts` |
+| "$X saved" vs the splurge version (beauty kitty) | `src/lib/kept.ts` |
 | Twinning ending (timeline / drawing and video) | `src/lib/twinning.ts`, `src/app/twinning.tsx` |
 | Lipstick: candidates, calibration, proof cards, smart pick | `src/lib/lips/plan.ts` |
 | Face landmarks, lip/cheek/brow measurement, crops, composites | `src/lib/lips/detect.ts` |
@@ -84,12 +70,12 @@ copying pixels would paste brighter skin; adding the difference doesn't.
 | Finish, explanations, makeup-vto parameters | `src/lib/lips/{finish,explain,palette}.ts` |
 | Blush model and proof | `src/lib/blush/plan.ts` |
 | Hair dye / brow measurement and brow advice | `src/lib/hair/{compare,brows}.ts` |
-| Catalogs (fictional brands, price tiers, some deliberate fake dupes) | `src/data/{catalog,blush-catalog,hair-catalog,brow-catalog}.ts` |
+| Catalogs (fictional brands, price tiers, a few deliberate non-twins) | `src/data/{catalog,blush-catalog,hair-catalog,brow-catalog}.ts` |
 | Color science (Lab, CIEDE2000) | `src/lib/color.ts` |
 | YouCam client (upload, run task, poll, resize, errors) | `src/lib/youcam.ts` |
 | Server pipeline, caching, demo record/replay | `src/lib/look-session.ts` |
 | Shopper API | `src/app/api/look/{start,tryon,blush,hair,haircolor,brows,config}/route.ts` |
-| Dupe Audit | `src/app/retailer/audit/page.tsx`, `src/lib/audit.ts`, `src/app/api/audit/*`, `src/lib/synthetic-faces.ts` |
+| AI-generated look photos (prompts) | `src/lib/synthetic-faces.ts`, `npm run week1 -- looks` |
 | Saved lip profile | `src/lib/lip-profile.ts` |
 | Share card | `src/lib/share.ts`, `src/lib/share-card.ts` |
 | Unit budget guard and ledger | `src/lib/units.ts` |
@@ -107,7 +93,7 @@ npm test
 
 | Mode | `.env.local` | Units |
 |---|---|---|
-| Demo (judges' link, UI work) | `DEMO_MODE=1` | 0, replays `public/demo/look/` and `public/demo/audit/report.json` |
+| Demo (judges' link, UI work) | `DEMO_MODE=1` | 0, replays `public/demo/look/` |
 | Live | `DEMO_MODE=0` | about 6–10 for lips + blush; hair and brows extra (see above) |
 | Live + record the demo | `DEMO_MODE=0`, `RECORD_DEMO=1` | same as live; a new session replaces the recorded one |
 
@@ -124,7 +110,7 @@ recorded are offered.
 | Makeup VTO (`makeup-vto`: lipstick, blush, eyebrows) | 1 |
 | Hairstyle Generator v2.1 (`hair-transfer`) | 2 |
 | Hair Color (`hair-color`) | 1 |
-| AI Image Generator (`text-to-image/youcam`, synthetic faces) | 1 |
+| AI Image Generator (`text-to-image/youcam`, AI-generated look photos) | 1 |
 
 `UNIT_BUDGET` caps total spend for the app and CLI (ledger: `.data/units.json`).
 Failed YouCam tasks are not charged. Repeat try-ons are cached while the server runs.
@@ -138,7 +124,6 @@ npm run week1 -- units                                          # spent by this 
 npm run week1 -- tryon ./selfies/me.jpg aur-coral --yes         # 1 unit
 npm run week1 -- transfer ./selfies/me.jpg ./selfies/look.jpg --yes   # 2 units
 npm run week1 -- blush ./selfies/me.jpg "#F27F6B" matte --yes   # 1 unit
-npm run week1 -- faces all --yes                                # synthetic test faces, 1 unit each
 npm run week1 -- looks all --yes                                # AI-generated makeup look photos (lipstick, blush, loose hair), 1 unit each
 ```
 
@@ -161,5 +146,7 @@ never commit `.env.local`.
 
 ## Archive
 
+`archive/retailer-audit/` holds the retailer Twin Shade Audit (removed from the app
+on 2026-10-28 to keep the story on the shopper; see its README to restore it).
 `archive/echomirror/` holds the earlier voice-first prototype (excluded from the
 build and tests). Delete it when it's no longer needed.
