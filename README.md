@@ -144,9 +144,3 @@ The lip profile stores numbers only, and the optional first name (for the greeti
 shows lip close-ups only. `selfies/`, `week1-results/` and `.data/` are git-ignored;
 never commit `.env.local`.
 
-## Archive
-
-`archive/retailer-audit/` holds the retailer Twin Shade Audit (removed from the app
-on 2026-10-28 to keep the story on the shopper; see its README to restore it).
-`archive/echomirror/` holds the earlier voice-first prototype (excluded from the
-build and tests). Delete it when it's no longer needed.
