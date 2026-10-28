@@ -14,8 +14,8 @@ describe("first name", () => {
     expect(cleanFirstName("a".repeat(50))).toHaveLength(30);
   });
 
-  it("falls back to 'you'", () => {
-    expect(greetingName("")).toBe("you");
+  it("falls back to 'gorgeous'", () => {
+    expect(greetingName("")).toBe("gorgeous");
     expect(greetingName("Neha")).toBe("Neha");
   });
 });

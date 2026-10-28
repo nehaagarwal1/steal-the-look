@@ -188,7 +188,7 @@ a.button-like { text-decoration: none; }
 
 .effort { color: var(--muted); margin-top: -0.25rem; }
 
-/* Dupe Audit */
+/* Twin Shade Audit */
 .pair-list, .face-list { list-style: none; padding: 0; display: grid; gap: 0.35rem; }
 .pair-list .swatch { display: inline-block; vertical-align: middle; }
 .face-list { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.75rem; margin: 0.75rem 0; }

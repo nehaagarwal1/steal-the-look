@@ -256,12 +256,12 @@ export function Twinning(props: {
       {still && <p className="hint">Animations are reduced on this device; press Replay to play it.</p>}
 
       <div className="happy">
-        <h3>Happy with my look?</h3>
+        <h3>Loving my glow-up?</h3>
         <div className="actions">
           <button className="big primary" aria-pressed={answer === "love"} onClick={love}>Love it 💖</button>
-          <button className="big" aria-pressed={answer === "tweak"} onClick={() => setAnswer("tweak")}>Tweak it</button>
+          <button className="big" aria-pressed={answer === "tweak"} onClick={() => setAnswer("tweak")}>Let me play more</button>
         </div>
-        {answer === "love" && <p role="status">Yay! 💖 Get my look below.</p>}
+        {answer === "love" && <p role="status">Obsessed! 💖 Grab my look below.</p>}
         {answer === "tweak" && (
           <div className="actions" role="group" aria-label="What to tweak">
             <button onClick={() => props.onTweak("lipstick")}>My lipstick</button>

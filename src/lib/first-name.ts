@@ -10,8 +10,8 @@ export function cleanFirstName(raw: string): string {
   return raw.replace(/[^\p{L}\p{M}' -]/gu, "").replace(/\s+/g, " ").trim().slice(0, MAX_NAME_LENGTH);
 }
 
-/** "Hey Neha ✨" or "Hey you ✨". */
-export const greetingName = (name: string) => (name ? name : "you");
+/** "Hey Neha ✨" or "Hey gorgeous ✨". */
+export const greetingName = (name: string) => (name ? name : "gorgeous");
 
 export function loadFirstName(): string {
   try {

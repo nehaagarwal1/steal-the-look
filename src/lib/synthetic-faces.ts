@@ -4,7 +4,7 @@
 
 export type FacePreset = { id: string; label: string; description: string };
 
-/** A spread of regions, ages and natural lip/skin tones for Dupe Audits. */
+/** A spread of regions, ages and natural lip/skin tones for Twin Shade Audits. */
 export const FACE_PRESETS: FacePreset[] = [
   { id: "south-asian", label: "South Asian", description: "a South Asian woman in her 30s with medium-deep brown skin and naturally deep rose-brown lips" },
   { id: "east-asian", label: "East Asian", description: "an East Asian woman in her 20s with light skin and naturally soft pink lips" },

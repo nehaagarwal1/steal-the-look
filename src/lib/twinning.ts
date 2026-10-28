@@ -34,13 +34,13 @@ export function twinningFrame(t: number): TwinningFrame {
   };
 }
 
-/** Bottom line of the card: the money kept, or a fallback when nothing was kept. */
-export function twinningSubtitle(kept: number): string {
-  return kept > 0 ? `Same look. I kept $${kept}.` : "Same look. Proven on me.";
+/** Bottom line of the card: what went into the kitty, or a fallback when nothing was saved. */
+export function twinningSubtitle(saved: number): string {
+  return saved > 0 ? `Same look. $${saved} saved 💰` : "Same look. Made for me.";
 }
 
 /** Optional personal line, only when a first name was given. */
-export const twinningNameLine = (name: string) => (name ? `${name}, nailed it 💅` : "");
+export const twinningNameLine = (name: string) => (name ? `${name}, you look stunning 💅` : "Stunning, right? 💅");
 
 /** First video type this browser can record (MP4 on Safari, WebM elsewhere), or null. */
 export function pickVideoType(isSupported: (type: string) => boolean): { mime: string; ext: string } | null {

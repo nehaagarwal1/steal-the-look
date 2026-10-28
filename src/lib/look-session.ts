@@ -193,81 +193,8 @@ export async function tryOnProducts(fileId: string, productIds: string[]): Promi
   return out;
 }
 
-// --- Retailer Dupe Audit -------------------------------------------------------
-
-export type AuditShadeInput = { key: string; hex: string; texture: LipProduct["texture"] };
-
-/** Uploads one consented test face; returns its YouCam file id and the normalized image. */
-export async function uploadAuditFace(selfie: Buffer): Promise<{ fileId: string; image: string }> {
-  const jpeg = await prepareImage(selfie, TRANSFER_MAX_SIDE);
-  const fileId = await cached(`auditface:${sha(jpeg)}`, 20 * HOUR, () => uploadImage(jpeg, "face.jpg", TRANSFER_MAX_SIDE, { prepared: true }));
-  return { fileId, image: toDataUrl(jpeg) };
-}
-
-/** Tries arbitrary shades (e.g. from a retailer's CSV) on one face, two at a time. */
-export async function tryOnAuditShades(fileId: string, shades: AuditShadeInput[]): Promise<{ key: string; image?: string; error?: string }[]> {
-  console.info(`[audit] face ${fileId.slice(0, 8)}…: ${shades.length} shades`);
-  const out: { key: string; image?: string; error?: string }[] = [];
-  for (let i = 0; i < shades.length; i += 2) {
-    out.push(...(await Promise.all(shades.slice(i, i + 2).map(async (sh) => {
-      try {
-        return { key: sh.key, image: toDataUrl(await renderShade(fileId, sh)) };
-      } catch (err) {
-        console.error(`[audit] ${sh.key} failed: ${(err as Error).message}`);
-        return { key: sh.key, error: (err as Error).message };
-      }
-    }))));
-  }
-  return out;
-}
-
-const AUDIT_REPORT = path.join(process.cwd(), "public", "demo", "audit", "report.json");
-
-/** Saves a finished audit report (numbers and labels only, no photos) for demo mode. */
-export function saveAuditReport(json: string) {
-  mkdirSync(path.dirname(AUDIT_REPORT), { recursive: true });
-  writeFileSync(AUDIT_REPORT, json);
-}
-
-export const auditRecordingOn = () => isRecording();
-
-/**
- * Generates one synthetic (AI) test face. 1 unit, except when a face for the
- * same preset was saved before: then that file is reused for free.
- * Outside production, each new face is saved to selfies/ (git-ignored) so it's never lost.
- */
-export async function generateSyntheticFace(
-  person: string,
-  presetId = "custom",
-): Promise<{ image: string; prompt: string; savedTo?: string; reused?: boolean }> {
-  const prompt = facePrompt(person);
-  const dir = path.join(process.cwd(), "selfies");
-  const canSave = process.env.NODE_ENV !== "production";
-
-  if (canSave && presetId !== "custom" && existsSync(dir)) {
-    const prior = readdirSync(dir).filter((f) => f.startsWith(`synthetic-${presetId}-`) && /\.jpe?g$/i.test(f)).sort().pop();
-    if (prior) {
-      console.info(`[audit] reusing saved synthetic face selfies/${prior}`);
-      return { image: toDataUrl(readFileSync(path.join(dir, prior))), prompt, savedTo: `selfies/${prior}`, reused: true };
-    }
-  }
-
-  console.info(`[audit] generating synthetic face: ${person.slice(0, 60)}`);
-  const { url } = await generateImage(prompt, { negativePrompt: NEGATIVE_PROMPT });
-  const jpeg = await prepareImage(await download(url), TRANSFER_MAX_SIDE);
-  let savedTo: string | undefined;
-  if (canSave) {
-    try {
-      mkdirSync(dir, { recursive: true });
-      const name = `synthetic-${presetId}-${Date.now()}.jpg`;
-      writeFileSync(path.join(dir, name), jpeg);
-      savedTo = `selfies/${name}`;
-    } catch (err) {
-      console.warn(`[audit] couldn't save synthetic face: ${(err as Error).message}`);
-    }
-  }
-  return { image: toDataUrl(jpeg), prompt, savedTo };
-}
+/** True while a live session is being recorded for demo mode. */
+export const recordingOn = () => isRecording();
 
 // --- Blush ------------------------------------------------------------------------
 

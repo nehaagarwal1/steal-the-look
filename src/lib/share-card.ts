@@ -82,7 +82,7 @@ export async function renderShareCard(f: ShareFacts, lookLips: string, matchLips
   centered(ctx, f.brand, 1050, 36, MUTED, 500);
   let y = 1130;
   if (f.premiumPrice && f.trueDupe) {
-    centered(ctx, `✓ Twin of the $${f.premiumPrice} one on me`, y, 36, OK, 700);
+    centered(ctx, `✓ Just as gorgeous on me as the $${f.premiumPrice} one 💅`, y, 36, OK, 700);
     y += 60;
   }
   const finish = finishLine(f);

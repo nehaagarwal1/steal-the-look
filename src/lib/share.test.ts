@@ -6,7 +6,7 @@ const full: ShareFacts = { shade: "Berry No. 203", brand: "Maison Aurelle Rouge 
 
 describe("share text", () => {
   it("shows the saving in the headline", () => {
-    expect(priceHeadline(dupe)).toBe("I kept $36");
+    expect(priceHeadline(dupe)).toBe("$36 saved 💰");
     expect(priceLine(dupe)).toBe("$6 instead of $42");
     expect(priceHeadline(full)).toBe("$42");
     expect(priceLine(full)).toBeNull();
@@ -14,7 +14,7 @@ describe("share text", () => {
 
   it("writes an honest caption", () => {
     expect(shareCaption(dupe)).toBe(
-      "Pretty looks, smart picks. I got this look for $6 and kept $36: it looks the same on me as the $42 one. Pink No. 207, 82% match on my own lips. #PrettySmart",
+      "Pretty looks, smart picks. I got this look for $6 and saved $36: it looks the same on me as the $42 one. Pink No. 207, 82% match on my own lips. #PrettySmart",
     );
     expect(shareCaption(full)).toBe("Pretty looks, smart picks. I got this look for $42. Berry No. 203, 73% match on my own lips. #PrettySmart");
   });

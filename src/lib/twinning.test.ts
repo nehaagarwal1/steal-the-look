@@ -16,14 +16,14 @@ describe("twinning timeline", () => {
 });
 
 describe("twinning text", () => {
-  it("shows the money kept, or a fallback", () => {
-    expect(twinningSubtitle(82)).toBe("Same look. I kept $82.");
-    expect(twinningSubtitle(0)).toBe("Same look. Proven on me.");
+  it("shows what went into the kitty, or a fallback", () => {
+    expect(twinningSubtitle(82)).toBe("Same look. $82 saved 💰");
+    expect(twinningSubtitle(0)).toBe("Same look. Made for me.");
   });
 
-  it("adds a name line only with a name", () => {
-    expect(twinningNameLine("Neha")).toBe("Neha, nailed it 💅");
-    expect(twinningNameLine("")).toBe("");
+  it("adds a compliment, personal when there's a name", () => {
+    expect(twinningNameLine("Neha")).toBe("Neha, you look stunning 💅");
+    expect(twinningNameLine("")).toBe("Stunning, right? 💅");
   });
 
   it("picks MP4 when available (Safari), else WebM, else nothing", () => {

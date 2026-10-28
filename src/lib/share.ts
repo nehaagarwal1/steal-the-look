@@ -31,9 +31,9 @@ export function shareFacts(card: ProofCard, lookFinish?: Finish): ShareFacts {
 }
 
 /** Headline on the card: "$42 → $6" when there are savings, otherwise "$18". */
-/** Big line on the card: the money kept, when there is a splurge version to compare with. */
+/** Big line on the card: the money saved, when there is a splurge version to compare with. */
 export function priceHeadline(f: ShareFacts): string {
-  return f.premiumPrice ? `I kept $${f.premiumPrice - f.price}` : `$${f.price}`;
+  return f.premiumPrice ? `$${f.premiumPrice - f.price} saved 💰` : `$${f.price}`;
 }
 
 /** Small line under the headline: both prices, as a choice rather than "cheap vs expensive". */
@@ -45,7 +45,7 @@ export function priceLine(f: ShareFacts): string | null {
 export function shareCaption(f: ShareFacts): string {
   const money = f.premiumPrice
     ? f.trueDupe
-      ? ` for $${f.price} and kept $${f.premiumPrice - f.price}: it looks the same on me as the $${f.premiumPrice} one`
+      ? ` for $${f.price} and saved $${f.premiumPrice - f.price}: it looks the same on me as the $${f.premiumPrice} one`
       : ` for $${f.price} instead of $${f.premiumPrice}`
     : ` for $${f.price}`;
   return `Pretty looks, smart picks. I got this look${money}. ${f.shade}, ${f.score}% match on my own lips. #PrettySmart`;
