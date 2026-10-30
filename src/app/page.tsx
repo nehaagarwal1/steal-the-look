@@ -13,10 +13,11 @@ import { hairDupe, measureDyedHair, type HairDupeVerdict } from "@/lib/hair/comp
 import { BROW_FAMILIES, browFamily, type BrowProduct } from "@/data/brow-catalog";
 import { adviseBrows } from "@/lib/hair/brows";
 import { keptTotal } from "@/lib/kept";
+import { sourceFromFilename } from "@/lib/synthetic-faces";
 import { Twinning } from "./twinning";
-import { cleanFirstName, greetingName, loadFirstName, MAX_NAME_LENGTH, saveFirstName } from "@/lib/first-name";
+import { cleanFirstName, loadFirstName, MAX_NAME_LENGTH, saveFirstName } from "@/lib/first-name";
 import { forgetProfile, loadProfile, saveProfile, selfieFingerprint } from "@/lib/lip-profile";
-import { deltaE2000 } from "@/lib/color";
+import { colorName, deltaE2000 } from "@/lib/color";
 import { explainShade } from "@/lib/lips/explain";
 import { describeFinishMismatch, type Finish } from "@/lib/lips/finish";
 import { shareCaption, shareFacts } from "@/lib/share";
@@ -142,6 +143,8 @@ export default function Home() {
   const [start, setStart] = useState<Start | null>(null);
   const [lipsOnly, setLipsOnly] = useState("");
   const [showFull, setShowFull] = useState(false);
+  /** "Compare before & after": the original selfie next to the result. */
+  const [compare, setCompare] = useState(false);
   const [target, setTarget] = useState<LipResult | null>(null);
   /** Optional first name for the greeting, stored only in this browser. */
   const [firstName, setFirstName] = useState("");
@@ -208,7 +211,7 @@ export default function Home() {
   async function seeItOnMe() {
     setError("");
     setStage("transferring");
-    const stop = tickStatus(setStatus, "Doing my makeup… 💄 usually 15–40 seconds");
+    const stop = tickStatus(setStatus, "✨ Recreating your look… usually 15–40 seconds");
     try {
       const form = new FormData();
       if (selfie) form.append("selfie", selfie);
@@ -477,10 +480,12 @@ export default function Home() {
     setHair({}); setHairMode("ref"); setUseHair(true); setHairNote("");
     setDyeTries({}); setDyeFamily(null); setPickDye(null);
     setBrowTries({}); setBrowFamilyKey(null); setPickBrow(null); setTab("photos");
-    setStage("upload"); setStart(null); setLipsOnly(""); setTarget(null); setCards([]); setShowFull(false); setError(""); setStatus("");
+    setStage("upload"); setStart(null); setLipsOnly(""); setTarget(null); setCards([]); setShowFull(false); setCompare(false); setError(""); setStatus("");
   }
 
   const demo = config?.demo;
+  // AI-generated look photos keep their "synthetic-…" filename from `npm run week1 -- looks`.
+  const lookIsAi = !!look && sourceFromFilename(look.name) === "synthetic";
   const photosReady = !!(selfie && look && selfieCheck && lookCheck && !photoProblem(selfieCheck) && !photoProblem(lookCheck));
   const canStart = demo ? config?.demoReady : photosReady && lookConsent;
   const best = bestBuy(cards, undefined, target?.hex);
@@ -677,32 +682,41 @@ export default function Home() {
 
   return (
     <main className="wide">
-      <header>
-        <h1>Pretty <em>Smart</em></h1>
-        <p className="tagline"><strong>Pretty looks. Smart picks.</strong> Already gorgeous? Obviously. Now let&apos;s play with a new shade, try on any look you love, and save while you&apos;re at it 💄</p>
-        {!start && (
+      <header className="brand-header">
+        {/* Name and tagline in one: "Pretty‸looks Smart‸picks.", like a handwritten edit. */}
+        <h1 className="brand" aria-label="Pretty Smart: Pretty looks. Smart picks.">
+          <span className="brand-word">Pretty<span className="brand-insert" aria-hidden="true"><span className="brand-ins-word">looks</span><span className="brand-caret">‸</span></span></span>
+          {" "}
+          <span className="brand-word"><em>Smart</em><span className="brand-insert" aria-hidden="true"><span className="brand-ins-word">picks.</span><span className="brand-caret">‸</span></span></span>
+        </h1>
+        {/* One personal line: the greeting and the invitation to play, with the name when we have one. */}
+        <p className="tagline greeting">
+          Hey {firstName || "you"}, gorgeous is a given! 😉 Ready to turn up the glam with a brand-new shade? 💋
+        </p>
+        {/* Like a "log out" link, top right: switch to someone else's name. */}
+        {firstName && !editingName && (
+          <button className="switch-name" onClick={() => { setNameDraft(firstName); setEditingName(true); }}>
+            Not {firstName}? Switch ↪
+          </button>
+        )}
+        {(editingName || (!firstName && !start)) && (
           <div className="greeting-row">
-            <p className="greeting">Hey {greetingName(firstName)} ✨ Ready to play with a new look?</p>
-            {firstName && !editingName ? (
-              <button className="link-button" onClick={() => { setNameDraft(firstName); setEditingName(true); }}>Not {firstName}? Switch it up</button>
-            ) : (
-              <form
-                className="name-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const name = cleanFirstName(nameDraft);
-                  setFirstName(name);
-                  saveFirstName(name);
-                  setEditingName(false);
-                }}
-              >
-                <label>
-                  What do your besties call you? 💕 <span className="hint">(just for the greetings, and it never leaves this browser)</span>{" "}
-                  <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={MAX_NAME_LENGTH} autoComplete="given-name" placeholder="Your first name" />
-                </label>{" "}
-                <button type="submit">{nameDraft.trim() ? "That's me ✨" : firstName ? "Remove my name" : "That's me ✨"}</button>
-              </form>
-            )}
+            <form
+              className="name-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const name = cleanFirstName(nameDraft);
+                setFirstName(name);
+                saveFirstName(name);
+                setEditingName(false);
+              }}
+            >
+              <label>
+                What do your besties call you? 💕 <span className="hint">(just for the greetings, and it never leaves this browser)</span>{" "}
+                <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={MAX_NAME_LENGTH} autoComplete="given-name" placeholder="Your first name" />
+              </label>{" "}
+              <button type="submit">{nameDraft.trim() ? "That's me ✨" : firstName ? "Remove my name" : "That's me ✨"}</button>
+            </form>
           </div>
         )}
       </header>
@@ -741,17 +755,17 @@ export default function Home() {
         <>
       {/* 1. Upload */}
       <section className="panel" aria-labelledby="s1">
-        <h2 id="s1"><span className="step">1</span> Me + the look I love</h2>
+        <h2 id="s1">Me + the look I love</h2>
         {demo ? (
-          <p>The demo uses the recorded selfie and look. Press <strong>Show me in this look ✨</strong>.</p>
+          <p>The demo uses the recorded selfie and look. Press <strong>💋 Let&apos;s Try This Look!</strong>.</p>
         ) : (
           <>
             <div className="pickers">
-              <PhotoPicker title="My selfie" hint="Front-facing, no glasses, bare or light lips, good light." file={selfie} check={selfieCheck} onPick={(f) => onPick("selfie", f)} disabled={stage !== "upload"} />
-              <PhotoPicker title="A look I love" hint="A friend's photo, a photo of me, or any look I have permission to use. One face, lips clearly visible." file={look} check={lookCheck} onPick={(f) => onPick("look", f)} disabled={stage !== "upload"} />
+              <PhotoPicker title="Your selfie" hint="Front-facing • No glasses • Light or bare lips • Good lighting" file={selfie} check={selfieCheck} onPick={(f) => onPick("selfie", f)} disabled={stage !== "upload"} />
+              <PhotoPicker title="The look you're crushing on ✨" hint="Your photo, a friend's photo, or any look you have permission to use. One face, lips clearly visible." file={look} check={lookCheck} onPick={(f) => onPick("look", f)} disabled={stage !== "upload"} />
             </div>
             <p className="hint" id="photo-privacy">
-              Both photos are sent to YouCam to create the try-ons and kept by them for up to 24 hours. We don&apos;t store them.
+              🔒 Photos are processed by YouCam, which keeps them for up to 24 hours. This app doesn&apos;t save them.
             </p>
             <label className="toggle consent">
               <input
@@ -759,41 +773,80 @@ export default function Home() {
                 checked={lookConsent}
                 onChange={(e) => setLookConsent(e.target.checked)}
                 disabled={stage !== "upload"}
-                aria-describedby="photo-privacy"
+                aria-describedby={lookIsAi ? "photo-privacy ai-note" : "photo-privacy"}
               />
-              I have permission to use the look photo: it&apos;s me, or the person in it agreed.
+              {lookIsAi
+                ? <>AI-generated with YouCam; I&apos;m happy to use it.</>
+                : <>It&apos;s my photo, or I have permission to use it.</>}
+              {/* Transparency note as a small info tip (hover or keyboard focus), so it doesn't clutter the flow. */}
+              {lookIsAi && (
+                <span className="info-tip" tabIndex={0} role="note" aria-label="About AI-generated looks" onClick={(e) => e.preventDefault()}>
+                  ⓘ<span className="info-tip-text" id="ai-note">AI-generated look: labeled as AI-generated wherever it&apos;s shown.</span>
+                </span>
+              )}
             </label>
             {photosReady && !lookConsent && <p className="hint">Tick the permission box to continue.</p>}
           </>
         )}
         <button className="big primary" onClick={seeItOnMe} disabled={!canStart || stage !== "upload"}>
-          {stage === "transferring" ? "Doing my makeup… 💄" : "Show me in this look ✨"}
+          {stage === "transferring" ? "✨ Recreating Your Look…" : start ? "😍 Love My New Look!" : "💋 Let's Try This Look!"}
         </button>
       </section>
 
       {/* 2. See it on you */}
       {start && (
         <section className="panel" aria-labelledby="s2">
-          <h2 id="s2"><span className="step">2</span> Me, rocking this look</h2>
-          <div className="compare">
+          <h2 id="s2">Okayyy, look at me! 😍</h2>
+          <div className="look-on-me">
             <figure>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={showFull ? start.transferImage : lipsOnly} alt={showFull ? "My photo with the full makeup look applied" : "My photo with only the lip color from the look applied"} />
-              <figcaption>{showFull ? "The full look (skin, brows, eyes and lips)" : "Just the lip color: what we'll match"}</figcaption>
+              {(() => {
+                const after = showFull ? start.transferImage : lipsOnly;
+                const afterAlt = showFull ? "My photo with the full makeup look applied" : "My photo with only the lip color from the look applied";
+                return compare ? (
+                  <div className="before-after">
+                    {[{ src: start.selfieImage, alt: "My original selfie", label: "Before" }, { src: after, alt: afterAlt, label: "After" }].map((v) => (
+                      <div key={v.label} className="look-frame">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img className="look-bg" src={v.src} alt="" aria-hidden="true" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img className="look-main" src={v.src} alt={v.alt} />
+                        <span className="frame-label">{v.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="look-frame">
+                    {/* Blurred copy of the same picture behind it, so the photo stands out. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="look-bg" src={after} alt="" aria-hidden="true" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="look-main" src={after} alt={afterAlt} />
+                  </div>
+                );
+              })()}
             </figure>
             {target && (
-              <div>
-                <p className="swatch-row">
-                  <span className="swatch big-swatch" style={{ background: target.hex }} aria-hidden />
-                  <span>The look's lip color on me<br /><strong>{target.hex}</strong></span>
-                </p>
-                {start.lookSynthetic && <p className="hint">The look photo is AI-generated (YouCam AI Image Generator): no real person is shown.</p>}
-                {lookCheck && <p>Finish of the look: <strong>{cap(lookCheck.finish)}</strong> <span className="hint">(measured from the look photo)</span></p>}
-                <label className="toggle">
-                  <input type="checkbox" checked={showFull} onChange={(e) => setShowFull(e.target.checked)} /> Show the full look
-                </label>
+              <div className="lip-card" aria-label="My new lip look">
+                <span className="lip-swatch" style={{ background: target.hex }} aria-hidden />
+                <div>
+                  <p className="lip-card-title">💋 My new lip look</p>
+                  <p className="lip-card-name">
+                    {cap(colorName(target.hex))}{lookCheck && <> · {cap(lookCheck.finish)} finish</>}
+                  </p>
+                  <p className="hint">{target.hex}</p>
+                </div>
               </div>
             )}
+            <div className="look-actions">
+              <button className="secondary" aria-pressed={compare} onClick={() => setCompare((c) => !c)}>
+                ↔️ {compare ? "Back to my new look" : "Compare before & after"}
+              </button>
+              <label className="toggle">
+                <input type="checkbox" checked={showFull} onChange={(e) => setShowFull(e.target.checked)} /> Show the full makeup ✨
+              </label>
+              <button className="secondary small" onClick={restart}>📸 Start over</button>
+            </div>
+            <p className="hint">{showFull ? "Eyes, cheeks and lips from the look photo." : "Just the lip color from the look photo: that's what we'll match."}</p>
           </div>
           {stage === "preview" || stage === "trying" ? (
             <button className="big primary" onClick={findForLess} disabled={stage === "trying"}>
@@ -803,14 +856,15 @@ export default function Home() {
           {profile && profileKey && (
             <p className="profile-note">
               <span>
-                <strong>Lip profile saved</strong> from {profile.looks} earlier look{profile.looks > 1 ? "s" : ""}: the first try-ons are already
-                calibrated to your lips, so you usually need fewer. Stored only in this browser, no photo.
+                <strong>💋 My lip profile is ready!</strong> Calibrated from {profile.looks} earlier look{profile.looks > 1 ? "s" : ""}, so my
+                first try-ons already fit my lips. It stays in this browser (numbers only, no photo).
               </span>
               <button
-                onClick={() => { forgetProfile(profileKey); setProfile(null); setStatus("Lip profile deleted from this browser."); }}
+                className="secondary small"
+                onClick={() => { forgetProfile(profileKey); setProfile(null); setStatus("Lip profile reset in this browser."); }}
                 disabled={stage === "trying"}
               >
-                Forget my lip profile
+                Reset profile
               </button>
             </p>
           )}
@@ -1130,7 +1184,7 @@ export default function Home() {
                 mySrc={myLook}
                 kept={keptTotal(items)}
                 firstName={firstName}
-                lookLabel={start.lookSynthetic ? "AI-generated look" : "The look"}
+                lookLabel={start.lookSynthetic || lookIsAi ? "AI-generated look" : "The look"}
                 onLove={() => {
                   const b = document.getElementById("get-my-look");
                   b?.scrollIntoView({ behavior: "smooth", block: "center" });
