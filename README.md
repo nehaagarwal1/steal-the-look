@@ -7,7 +7,7 @@ the lipstick, blush, hair color and brow color that match it, **proven on your o
 face**, and save while you play: for every shade, the splurge and the smart version
 are both tried on you, with an honest "twin or not" for the smart one.
 
-The app speaks in the shopper's voice ("Show me in this look", "My smart pick",
+The app speaks in the shopper's voice ("💋 Let's Try This Look!", "My smart pick",
 "$36 saved into my kitty"). Saving is framed as a smart choice, never as settling: both prices are
 shown side by side, and when the smart version isn't a true twin, the app says the
 splurge is worth it. Built on the YouCam API for the
@@ -144,3 +144,9 @@ The lip profile stores numbers only, and the optional first name (for the greeti
 shows lip close-ups only. `selfies/`, `week1-results/` and `.data/` are git-ignored;
 never commit `.env.local`.
 
+## Archive
+
+`archive/retailer-audit/` holds the retailer Twin Shade Audit (removed from the app
+on 2026-10-28 to keep the story on the shopper; see its README to restore it).
+`archive/echomirror/` holds the earlier voice-first prototype (excluded from the
+build and tests). Delete it when it's no longer needed.
