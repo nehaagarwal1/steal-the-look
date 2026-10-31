@@ -4,30 +4,30 @@
 
 Upload a selfie and a look you love. See the whole look on your own face, then find
 the lipstick, blush, hair color and brow color that match it, **proven on your own
-face**, and save while you play: for every shade, the splurge and the smart version
-are both tried on you, with an honest "twin or not" for the smart one.
+face**. The app tries the closest lipstick and blush options on you and compares
+premium and lower-priced versions when available, so you can see which alternatives
+are close matches.
 
-The app speaks in the shopper's voice ("💋 Let's Try This Look!", "My smart pick",
-"$36 saved into my kitty"). Saving is framed as a smart choice, never as settling: both prices are
-shown side by side, and when the smart version isn't a true twin, the app says the
-splurge is worth it. Built on the YouCam API for the
+The app speaks in the shopper's voice ("💋 Let's Try This Look!", "Made for me 💖").
+It compares products on the shopper's face and calls out when a lower-priced
+version isn't a close match. Built on the YouCam API for the
 [YouCam API Skin AI & eCommerce VTO Hackathon](https://youcam-api-skin-ai-ecommerce.devpost.com/).
 
 ## The shopper flow (tabs)
 
 | Tab | What happens | YouCam feature | Units |
 |---|---|---|---|
-| **📸 Me** | Selfie + look photo, checked in the browser (one face, lips found). Makeup Transfer puts the look on your face; preview shows **lips only** (toggle: full look). | Makeup Transfer | 2 |
-| **💄 Lips** | Picks the closest shade families, tries premium + budget versions on your lips, learns how color shifts on *your* lips if nothing is close (round 2), proves each shade on-face. | Makeup VTO (lip color) | 4–6 |
-| **🌸 Cheeks** | Measures the color the look's blush adds to your cheeks, predicts and tries the closest shades, proves them. | Makeup VTO (blush) | 3–4 |
-| **💇‍♀️ Hair & brows** | 1) Copy the look's **hairstyle and hair color** as-is. 2) Optionally change the hair color: salon dye vs box dye, proven on your hair. 3) Brow color suggestion for the new hair, gel vs pencil, proven on your brows. | Hairstyle Generator v2.1, Hair Color, Makeup VTO (eyebrows) | 2 + 2 per color + 2 per brow shade |
-| **✨ My glow-up** | **Twinning ✨** reveal: the original look photo and **my picks combined on my own photo** slide in, lean toward each other and sparkle, with "Same look. $X saved 💰" Then "Happy with my look?" ("Loving my glow-up?" **Love it 💖** → confetti and **Get my look**, or **Let me play more** → back to a tab). **Save as video** records the 6-second reveal in the browser (MP4 on Safari, WebM elsewhere; a picture if the browser can't record). | none (all in the browser) | 0 |
+| **📸 Me** | Selfie + look photo, checked in the browser (one face and lips highlighted). Makeup Transfer recreates the look; the page scrolls to the result, with a lip-only preview and a **Show the full makeup** toggle (hover for its info tip). | Makeup Transfer | 2 |
+| **💄 Lips** | Tries the closest shade families on your lips and measures them on-face. Close matches and weaker shades tried are both shown. Each card keeps the product name, price, and match easy to scan; **Details** opens the finish and color comparison. **Made for me 💖** appears after the shade options. | Makeup VTO (lip color) | 4–6 |
+| **🌸 Cheeks** | Measures the color the look's blush adds to your cheeks, predicts and tries the closest shades, and proves them. Cards include **Details** for finish and tint difference; **My glow 💖** appears after the options. | Makeup VTO (blush) | 3–4 |
+| **💇‍♀️ Hair & brows** | Shows three hair colors first, with the rest under **More hair colors**. Try hairstyle or color and compare before/after. Brow shades also show three first; a recommended shade is promoted into that list, with the rest under **More brow shades** and a before/after comparison for the brow try-on. | Hairstyle Generator v2.1, Hair Color, Makeup VTO (eyebrows) | 2 + 2 per color + 2 per brow shade |
+| **✨ My glow-up** | **Twinning ✨** reveal: the look photo and **my picks combined on my own photo** slide in, lean toward each other and sparkle. **Compare my look** opens a full-look comparison. **Love it 💖** adds confetti; **Let me play more** returns to a tab. **Save as video** records the 6-second reveal in the browser (MP4 on Safari, WebM elsewhere; a picture if the browser can't record). The **Get my look** button shows the cart total. | none (all in the browser) | 0 |
 
-Each try-on card shows a match %, a plain-language explanation ("Slightly deeper
-and cooler than the look"), the finish, and for smart versions: **✓ Just as gorgeous on me as the $42
-splurge 💅 · $36 saved 💰** or **✗ Not quite the same on me: the Maison Aurelle Rouge Couture is worth the splurge here 💖**. A "beauty kitty" shows the total saved ("💰 My beauty kitty: $82 saved so far").
-A **Close-ups / Full face** switch shows either the measured close-ups or your
-whole face. A shareable result card (lip close-ups only) can be downloaded.
+Lip and cheek result cards show the product name, price, and match; their **Details**
+control expands the extra comparison information. Lipstick results also show weaker
+shades tried under **Also tried · less exact matches**. A **Close-ups / Full face**
+switch shows either the measured close-ups or your whole face. A shareable result
+card (lip close-ups only) can be downloaded and closed when you're done.
 
 ## How the matching works
 
@@ -44,7 +44,7 @@ tiers of the same lipstick measured ΔE 0.6 apart on one face, different shades 
 | Hair dye | Pixels that changed between the undyed and dyed pictures = the hair (no segmentation model); YouCam's slight overall brightening is removed first | ΔE < 3 |
 | Brows | Same change-detection, against a lipstick try-on (same YouCam lighting) | ΔE < 3 |
 
-**My smart pick** = the lowest-priced shade that matches about as well as the best one, has
+**Smart pick** = the lowest-priced shade that matches about as well as the best one, has
 the look's finish if possible, and whose hue isn't clearly further off (so a lower-priced
 berry isn't recommended for an orange-red look).
 

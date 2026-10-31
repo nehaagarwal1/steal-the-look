@@ -26,70 +26,76 @@ ask the video to explain the YouCam APIs used; this covers all of them, in conte
 
 ## 0:15–0:40 · 📸 Me: okayyy, look at me! 😍
 
-**On screen:** 📸 Me tab → "Hey [name] ✨" → **💋 Let's Try This Look!** → "Okayyy, look at me! 😍" (lips-only preview) → tap **Compare before & after**, then tick **Show the full makeup ✨**.
+**On screen:** 📸 Me tab → upload the selfie and look photo → see **✓ Lips highlighted** → **💋 Let's Try This Look!** → the page scrolls to "Okayyy, look at me! 😍" → tap **Compare before & after**. If there's time, point out the hover tip on **Show the full makeup ✨**.
 
 🎬 **Captions:** `YouCam AI Image Generator` (only if the look is AI-generated) → `YouCam Makeup Transfer`
 
 > Pretty Smart starts with two photos: my selfie and the look. (If the look is
 > AI-generated: "This look photo was created with the **YouCam AI Image Generator**.")
-> **YouCam Makeup Transfer** copies the whole look from the photo onto my face. Then the app finds
-> my perfect match, one product at a time, starting with the lips.
+> **YouCam Makeup Transfer** recreates the look from the photo on my face. Then
+> the app finds my perfect match, one product at a time, starting with the lips.
 
 ## 0:40–1:10 · 💄 Lips: my lips, my shades
 
-**On screen:** **Find my perfect shade 💄** → 💄 Lips tab → "Made for me 💖" box →
-one shade card with **✓ Just as gorgeous on me…** → switch **Close-ups / Full face**.
+**On screen:** **Find my perfect shade 💄** → 💄 Lips tab → browse the close shades
+and visible **Also tried · less exact matches** section → open a shade's **Details**
+→ switch **Close-ups / Full face** → find **Made for me 💖** below the shade cards.
 
 🎬 **Caption:** `YouCam Makeup Virtual Try-On · lip color`
 
-> **YouCam Makeup Virtual Try-On** puts each lipstick on my lips: the splurge and
-> the smart version of every shade. Then the app measures each result on my face,
-> not in the tube. [shade] is a [score]% match, and the $[smart] one is just as
-> gorgeous on me as the $[splurge] splurge, so $[saved] goes in my kitty. And when
-> it's not quite the same, it tells me honestly that the splurge is worth it.
+> **YouCam Makeup Virtual Try-On** puts each lipstick on my lips. Then the app
+> measures each result on my face, not in the tube. Product names are prominent;
+> price and match are compact, and **Details** opens the finish and color comparison.
+> The closer shades and less exact options are both visible, so I can see what was
+> tried. **Made for me 💖** calls out the top pick after the shade cards.
 
 **Optional line:** "It also remembers how colors shift on my lips, so my next look
 needs fewer try-ons."
 
 ## 1:10–1:30 · 🌸 Cheeks: my glow
 
-**On screen:** 🌸 Cheeks tab → **Match my blush 🌸** → "My glow 💖" card.
+**On screen:** 🌸 Cheeks tab → **Match my blush 🌸** → browse blush cards and open
+**Details** → find **My glow 💖** below the shade options.
 
 🎬 **Caption:** `YouCam Makeup Virtual Try-On · blush`
 
 > Same **Makeup Try-On**, now with blush. Blush blends into skin, so the app
 > measures only the color it *adds* to my cheeks, compared with my forehead in the
-> same photo. My glow: [shade], [score]% match, $[saved] saved.
+> same photo. The shade name is easy to scan, with price and match alongside it.
+> **Details** opens finish and tint difference. **My glow 💖** appears after the
+> options and names the top match.
 
 ## 1:30–2:10 · 💇‍♀️ Hair & brows
 
-**On screen:** 💇‍♀️ Hair & brows tab → **The look's hairstyle** → pick a hair color
-that shows **✓ Just as gorgeous…** → pick one that doesn't (for example **Auburn**)
-showing **✗ Not quite the same on me…** → the ★ brow suggestion → **Use in my look**
-→ "My look so far" updates.
+**On screen:** 💇‍♀️ Hair & brows tab → **The look's hairstyle** → use
+**Compare hair before & after** → show the first three hair colors and **More hair
+colors** → pick a color and compare again → choose a brow shade. Show that the
+recommended brow shade moves into the first three and gets a ★, then use
+**Compare before & after** for brows → "My look so far" updates.
 
 🎬 **Captions:** `YouCam AI Hairstyle Generator` → `YouCam AI Hair Color` →
 `YouCam Makeup Virtual Try-On · eyebrows`
 
 > The look includes the hair. The **YouCam AI Hairstyle Generator** gives me this
-> hairstyle and color. Feeling bold? **YouCam AI Hair Color** tries the salon color
-> and the everyday box dye on my hair: [color] is just as gorgeous for $[saved]
-> less, but this Auburn box dye isn't quite the same, so the salon color is worth it.
-> A big hair change can make my brows look off, so **Makeup Try-On** colors only my
-> brows, keeping their shape, and checks the $[pencil] pencil against the $[gel] gel.
+> hairstyle and color. **YouCam AI Hair Color** lets me try other shades; I can
+> compare before and after and browse more options. A big hair change can make my
+> brows look off, so **Makeup Try-On** colors only my brows, keeping their shape.
+> The recommended brow shade is easy to find, and I can compare my natural brows
+> with the color try-on before I choose.
 
 ## 2:10–2:30 · ✨ My glow-up
 
 **On screen:** ✨ My glow-up tab → "Gorgeous, [name]! Here's my glow-up ✨" → the
 **Twinning ✨** reveal plays (the look photo and me slide in, lean toward each other,
-sparkles, "Same look. $[saved] saved 💰") → **Love it 💖** (confetti) → **Get my
-look 🛍️**. Optional: **Save as video** to show the shareable clip.
+sparkles, "Same look. $[saved] saved 💰") → **Compare my look** → **Love it 💖**
+(confetti) → **Get my look 🛍️ · $[total]**. Optional: **Save as video** to show
+the shareable clip.
 
 (No new API here: everything is combined in the browser from the try-ons above.)
 
 > Here's the look I fell for, next to me in it, all combined on my own photo:
-> lipstick, blush, hair color and brows for $[total], with $[saved] in my beauty
-> kitty. Twinning!
+> lipstick, blush, hair color and brows. I can compare the full look, tweak any
+> pick, or get everything together. Twinning!
 
 ## 2:30–2:37 · Close
 
