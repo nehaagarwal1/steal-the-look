@@ -29,7 +29,7 @@ export function adviseBrows(currentHairHex: string, newHairHex: string): BrowAdv
     shade: best.shade,
     needed,
     reason: needed
-      ? `A big change from my current hair, so my natural brows may look ${lighter ? "too dark" : "off"} with it. ${best.shade} goes with this color.`
+      ? `A big change from my current hair, so my natural brows may look ${lighter ? "too dark" : "off"} with it. ${best.shade} goes well with this color.`
       : `A small change: my natural brows will usually look fine. ${best.shade} is the closest brow shade if I want to match.`,
   };
 }

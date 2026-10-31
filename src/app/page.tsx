@@ -145,6 +145,9 @@ export default function Home() {
   const [showFull, setShowFull] = useState(false);
   /** "Compare before & after": the original selfie next to the result. */
   const [compare, setCompare] = useState(false);
+  const [compareHair, setCompareHair] = useState(false);
+  const [compareBrows, setCompareBrows] = useState(false);
+  const [showLookCompare, setShowLookCompare] = useState(false);
   const [target, setTarget] = useState<LipResult | null>(null);
   /** Optional first name for the greeting, stored only in this browser. */
   const [firstName, setFirstName] = useState("");
@@ -189,6 +192,13 @@ export default function Home() {
   /** How much work the last search took, shown with the results. */
   const [effort, setEffort] = useState<{ rounds: number; tryOns: number; usedProfile: boolean } | null>(null);
   const resultsRef = useRef<HTMLHeadingElement>(null);
+  const lookRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (stage === "preview" && start) {
+      lookRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [stage, start]);
 
   useEffect(() => {
     fetch("/api/look/config").then((r) => r.json()).then(setConfig).catch(() => setConfig({ demo: false, demoReady: false, demoProducts: [] }));
@@ -324,23 +334,18 @@ export default function Home() {
       });
       setCards(proof);
       setStage("proof");
-      const best = bestBuy(proof, undefined, target.hex);
-      const failNote = failed.length ? ` ${failed.length} shade${failed.length > 1 ? "s" : ""} couldn't be tried (${failed.map((p) => p.shade).join(", ")}).` : "";
 
       // Learn from this look: fold how colors shifted on these lips into the saved profile.
-      let profileNote = "";
       const shift = estimateShift(target.hex, measured);
       if (shift && profileKey) {
         const updated = mergeProfile(profile, shift);
         if (saveProfile(profileKey, updated)) {
           setProfile(updated);
-          profileNote = ` Lip profile saved (${updated.looks} look${updated.looks > 1 ? "s" : ""}).`;
         }
       }
       const tryOns = measured.length + failed.length;
       setEffort({ rounds, tryOns, usedProfile: !!profile });
-      const effortNote = ` Found in ${rounds} round${rounds > 1 ? "s" : ""} (${tryOns} try-ons).`;
-      setStatus((best ? `Found my shade 💄 ${label(best.product)}, ${best.score}% match for $${best.product.price}${best.savings ? `, and $${best.savings} goes in my kitty 💰` : ""}.` : "") + effortNote + failNote + profileNote);
+      setStatus("");
       setTab("lipstick");
       setTimeout(() => resultsRef.current?.focus(), 0);
     } catch (e) {
@@ -377,7 +382,7 @@ export default function Home() {
       const blob = await renderShareCard(facts, target.lipCrop, crop);
       if (shareImage) URL.revokeObjectURL(shareImage.url);
       setShareImage({ url: URL.createObjectURL(blob), blob, caption: shareCaption(facts) });
-      setStatus("My result card is ready below. Time to show off ✨");
+      setStatus("");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -460,8 +465,7 @@ export default function Home() {
 
       const cards = buildBlushProof(target, samples).map((c) => { const smp = samples.find((x) => x.product.id === c.product.id); return { ...c, crop: smp?.crop, image: smp?.image, raw: smp?.raw }; });
       setBlush({ cards, targetCrop: lookOnBare.crop, targetFull: lookOnBare.full, tryOns: samples.length });
-      const b = bestBlush(cards);
-      setStatus(b ? `Found my glow 🌸 ${label(b.product)}, ${b.score}% match for $${b.product.price}${b.savings ? `, and $${b.savings} goes in my kitty 💰` : ""}.` : "");
+      setStatus("");
     } catch (e) {
       setError((e as Error).message);
       setStatus("");
@@ -498,11 +502,23 @@ export default function Home() {
   const lipPickId = lipPick?.product.id, blushPickId = blushPick?.product.id;
   // Hair dyes go on the look's hairstyle when it's shown, otherwise on your own hair.
   const dyeBase: HairBase = useHair && hair[hairMode] ? hairMode : "none";
+  const availableHairColors = HAIR_FAMILIES.filter((f) => {
+    if (!config?.demo) return true;
+    const recorded = config.demoHairColor?.[dyeBase] ?? [];
+    const family = hairFamily(f.key);
+    return !!family && recorded.includes(family.premium.id);
+  });
+  const availableBrowColors = BROW_FAMILIES.filter((f) => !config?.demo || (config.demoBrows ?? []).includes(browFamily(f.key)?.premium.id ?? ""));
   const dyeTry = dyeFamily ? dyeTries[`${dyeBase}:${dyeFamily}`] : undefined;
   const dyePick = [dyeTry?.premium, dyeTry?.budget].find((v) => v && v.product.id === pickDye);
   const hairImage = dyePick?.image ?? (useHair ? hair[hairMode] : undefined);
+  const hairBeforeImage = dyePick
+    ? (dyeBase === "none" ? start?.selfieImage : hair[dyeBase]) ?? start?.selfieImage
+    : start?.selfieImage;
+  const hairAfterImage = hairImage;
   const browTry = browFamilyKey ? browTries[browFamilyKey] : undefined;
   const browPick = [browTry?.premium, browTry?.budget].find((v) => v && v.product.id === pickBrow);
+  const browCompareAfter = [browTry?.premium, browTry?.budget].find((v) => v && v.product.id === pickBrow) ?? browTry?.premium;
   const browImage = browPick?.image;
   // What is still being applied (try-on running, or the picture being recombined), so "Your look" never looks final too early.
   const applying =
@@ -513,6 +529,9 @@ export default function Home() {
     : lookUpdating ? "my picks to the picture"
     : "";
   const browAdvice = dyePick && dyeTry?.before && dyeTry.colors?.[dyePick.product.id] ? adviseBrows(dyeTry.before, dyeTry.colors[dyePick.product.id]) : null;
+  const browColorOptions = browAdvice
+    ? [...availableBrowColors].sort((a, b) => Number(b.key === browAdvice.family) - Number(a.key === browAdvice.family))
+    : availableBrowColors;
   useEffect(() => {
     let cancelled = false;
     const lipCard = cards.find((c) => c.product.id === lipPickId);
@@ -637,7 +656,7 @@ export default function Home() {
       }
       setDyeTries((t) => ({ ...t, [key]: entry }));
       setPickDye((entry.budget ?? entry.premium).product.id);
-      setStatus(entry.dupe ? `${fam.premium.shade}: the $${fam.budget.price} box dye ${entry.dupe.label} vs the $${fam.premium.price} salon color.` : "Hair color added to my look. Obsessed 😍");
+      setStatus("");
     } catch (e) {
       setError((e as Error).message);
       setStatus("");
@@ -795,7 +814,7 @@ export default function Home() {
 
       {/* 2. See it on you */}
       {start && (
-        <section className="panel" aria-labelledby="s2">
+        <section className="panel" aria-labelledby="s2" ref={lookRef}>
           <h2 id="s2">Okayyy, look at me! 😍</h2>
           <div className="look-on-me">
             <figure>
@@ -841,12 +860,14 @@ export default function Home() {
               <button className="secondary" aria-pressed={compare} onClick={() => setCompare((c) => !c)}>
                 ↔️ {compare ? "Back to my new look" : "Compare before & after"}
               </button>
-              <label className="toggle">
+              <label className="toggle full-makeup-toggle">
                 <input type="checkbox" checked={showFull} onChange={(e) => setShowFull(e.target.checked)} /> Show the full makeup ✨
+                <span className="info-tip" tabIndex={0} role="note" aria-label="About showing the full makeup">
+                  ⓘ<span className="info-tip-text">Full glam, coming right up: eyes, cheeks, and lips copied from your look photo.</span>
+                </span>
               </label>
               <button className="secondary small" onClick={restart}>📸 Start over</button>
             </div>
-            <p className="hint">{showFull ? "Eyes, cheeks and lips from the look photo." : "Just the lip color from the look photo: that's what we'll match."}</p>
           </div>
           {stage === "preview" || stage === "trying" ? (
             <button className="big primary" onClick={findForLess} disabled={stage === "trying"}>
@@ -888,13 +909,6 @@ export default function Home() {
             </p>
           )}
           {best && (
-            <p className="best">
-              <strong>Made for me 💖</strong> {label(best.product)}: {best.score}% match to the look, <strong>${best.product.price}</strong>
-              {best.savings ? <>. <strong className="kept">${best.savings} saved</strong> into my kitty 💰</> : null}.
-              {target && <><br /><span className="why">{whyText(target.hex, best, lookCheck?.finish)}</span></>}
-            </p>
-          )}
-          {best && (
             <div className="share">
               {!shareImage ? (
                 <button onClick={makeShareCard}>Show off my look ✨</button>
@@ -906,6 +920,7 @@ export default function Home() {
                     <a className="button-like" href={shareImage.url} download="pretty-smart.png">Download image</a>
                     <button onClick={shareCard}>Share…</button>
                     <button onClick={() => navigator.clipboard.writeText(shareImage.caption).then(() => setStatus("Caption copied."))}>Copy caption</button>
+                    <button className="secondary small" onClick={() => { URL.revokeObjectURL(shareImage.url); setShareImage(null); }}>Close</button>
                   </div>
                   <p className="hint">Only the lip close-ups are shown, not my whole face. Caption: &ldquo;{shareImage.caption}&rdquo;</p>
                 </>
@@ -920,16 +935,23 @@ export default function Home() {
             );
             return (
               <>
-                <ol className="groups">{(strong.length ? strong : groups.slice(0, 1)).map(render)}</ol>
-                {strong.length > 0 && weak.length > 0 && (
-                  <details className="more">
-                    <summary>Show other shades tried ({weak.length})</summary>
+                {strong.length > 0 && <ol className="groups">{strong.map(render)}</ol>}
+                {weak.length > 0 && (
+                  <section className="more-shades" aria-label="Other shades tried">
+                    <h3>Also tried · less exact matches</h3>
+                    <p className="hint">These shades were tried too, but their colors are farther from the look.</p>
                     <ol className="groups">{weak.map(render)}</ol>
-                  </details>
+                  </section>
                 )}
               </>
             );
           })()}
+          {best && (
+            <p className="best">
+              <strong>Made for me 💖</strong> {label(best.product)}: {best.score}% match to the look.
+              {target && <><br /><span className="why">{whyText(target.hex, best, lookCheck?.finish)}</span></>}
+            </p>
+          )}
           <p className="hint">Match % compares each shade on my lips with the look on my lips (CIEDE2000 color difference). Under 4 looks the same to most people.</p>
           <button className="big" onClick={() => setTab("blush")}>Next: a little blush 🌸 →</button>
         </section>
@@ -945,15 +967,6 @@ export default function Home() {
           <h2 id="sb">My cheeks, my glow 🌸</h2>
           {viewSwitch}
           <p className="effort">Found with {blush.tryOns} blush try-ons · calibrated to how blush shows on my cheeks</p>
-          {(() => {
-            const b = bestBlush(blush.cards);
-            return b ? (
-              <p className="best">
-                <strong>My glow 💖</strong> {label(b.product)}: {b.score}% match to the look, <strong>${b.product.price}</strong>
-                {b.savings ? <>. <strong className="kept">${b.savings} saved</strong> into my kitty 💰</> : null}.
-              </p>
-            ) : null;
-          })()}
           <ol className="groups">
             {(() => {
               const best = bestBlush(blush.cards);
@@ -984,17 +997,17 @@ export default function Home() {
                               {(view === "full" ? c.image : c.crop) && <img src={view === "full" ? c.image : c.crop} className={view === "full" ? "full" : ""} alt={`${label(c.product)} on my ${view === "full" ? "face" : "cheeks"}`} />}
                               <figcaption>
                                 {c.product.id === best?.product.id && <span className="tag best-tag">Smart pick</span>}
-                                <span className="card-brand">{c.product.name}</span>
-                                <span className="price">${c.product.price}</span>
-                                <span><span className="score">{c.score}%</span> match · {c.verdict}</span>
-                                <span className="hint">{c.product.texture} finish · tint difference {c.diff}</span>
-                                {c.dupe && (
-                                  <span className={c.dupe.isTrueDupe ? "dupe-ok" : "dupe-no"}>
-                                    {c.dupe.isTrueDupe
-                                      ? `✓ Just as gorgeous on me as the $${c.product.price + (c.savings ?? 0)} splurge 💅 · $${c.savings} saved 💰`
-                                      : `✗ Not quite the same on me: the ${getBlush(c.dupe.premiumId)?.name ?? "splurge version"} is worth the splurge here 💖`}
-                                  </span>
-                                )}
+                                <span className="lip-product-name">{c.product.name} <span className="lip-product-price">(${c.product.price})</span></span>
+                                <span className="lip-match"><span className="score">{c.score}%</span> match · {c.verdict}</span>
+                                <details className="shade-details">
+                                  <summary>Details</summary>
+                                  <div className="shade-detail-content">
+                                    <span className="hint">{c.product.texture} finish · tint difference {c.diff}</span>
+                                    {c.dupe && !c.dupe.isTrueDupe && (
+                                      <span className="dupe-no">✗ Not quite the same on me: the {getBlush(c.dupe.premiumId)?.name ?? "splurge version"} is worth the splurge here 💖</span>
+                                    )}
+                                  </div>
+                                </details>
                                 <button onClick={() => addToCart(c.product)} disabled={inCart(c.product.id)} aria-label={inCart(c.product.id) ? `${label(c.product)} is in my cart` : `Add ${label(c.product)}, $${c.product.price}, to cart`}>
                                   {inCart(c.product.id) ? "✓ In cart" : "Add to cart"}
                                 </button>
@@ -1011,6 +1024,14 @@ export default function Home() {
                 });
             })()}
           </ol>
+          {(() => {
+            const b = bestBlush(blush.cards);
+            return b ? (
+              <p className="best">
+                <strong>My glow 💖</strong> {label(b.product)}: {b.score}% match to the look.
+              </p>
+            ) : null;
+          })()}
           <p className="hint">
             Blush is compared as the color it adds to your cheeks (against your forehead in the same photo), so the look&apos;s foundation
             doesn&apos;t count. The first picture shows only the look&apos;s blush, added to your bare cheeks, so all pictures share the same skin.
@@ -1045,9 +1066,27 @@ export default function Home() {
           <div className="hair-layout">
           {myLook && (
             <figure className="hair-preview">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={myLook} alt="My look with the current hair, brow, lipstick and blush picks" />
-              <figcaption>My look so far: updates as I pick. Only the hair and brow color change; my brow shape stays mine.</figcaption>
+              {compareHair && hairBeforeImage && hairAfterImage ? (
+                <div className="before-after">
+                  {[{ src: hairBeforeImage, label: "Before", alt: "My hair before the try-on" }, { src: hairAfterImage, label: "After", alt: "My hair after the hairstyle or color try-on" }].map((v) => (
+                    <div key={v.label} className="look-frame">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img className="look-bg" src={v.src} alt="" aria-hidden="true" />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img className="look-main" src={v.src} alt={v.alt} />
+                      <span className="frame-label">{v.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={myLook} alt="My look with the current hair, brow, lipstick and blush picks" />
+              )}
+              <figcaption>{compareHair ? "Before and after my hair try-on." : "My look so far: updates as I pick. Only the hair and brow color change; my brow shape stays mine."}</figcaption>
+              <button className="secondary" aria-pressed={compareHair} disabled={!hairAfterImage} onClick={() => setCompareHair((value) => !value)}>
+                {compareHair ? "Back to my look" : "Compare hair before & after"}
+              </button>
+              {!hairAfterImage && <p className="hint">Choose the look&apos;s hairstyle or try a hair color to compare before and after.</p>}
             </figure>
           )}
           <div className="hair-box" role="group" aria-labelledby="hair-h">
@@ -1068,21 +1107,31 @@ export default function Home() {
             <p className="hint">
               On {dyeBase === "none" ? "my own hair" : "the look's hairstyle"}. We try the salon color and the everyday box dye on me and check whether they look the same.
             </p>
-            <div className="dye-swatches">
-              <button aria-pressed={!pickDye || !dyePick} onClick={() => { setPickDye(null); setDyeFamily(null); }}>
-                {dyeBase === "none" ? "My hair color" : "The look's color"}
-              </button>
-              {HAIR_FAMILIES.filter((f) => {
-                if (!config?.demo) return true;
-                const rec = config.demoHairColor?.[dyeBase] ?? [];
-                const fam = hairFamily(f.key);
-                return !!fam && rec.includes(fam.premium.id);
-              }).map((f) => (
+            {(() => {
+              const featured = availableHairColors.slice(0, 3);
+              const more = availableHairColors.slice(3);
+              const colorButton = (f: (typeof availableHairColors)[number]) => (
                 <button key={f.key} aria-pressed={dyeFamily === f.key && !!dyePick} disabled={dyeBusy} onClick={() => tryDye(f.key)}>
                   <span className="swatch" style={{ background: f.hex }} aria-hidden /> {f.shade}
                 </button>
-              ))}
-            </div>
+              );
+              return (
+                <>
+                  <div className="dye-swatches">
+                    <button aria-pressed={!pickDye || !dyePick} onClick={() => { setPickDye(null); setDyeFamily(null); }}>
+                      {dyeBase === "none" ? "My hair color" : "The look's color"}
+                    </button>
+                    {featured.map(colorButton)}
+                  </div>
+                  {more.length > 0 && (
+                    <details className="more hair-more-options" open={more.some((f) => f.key === dyeFamily)}>
+                      <summary>More hair colors ({more.length})</summary>
+                      <div className="dye-swatches">{more.map(colorButton)}</div>
+                    </details>
+                  )}
+                </>
+              );
+            })()}
             {dyeBusy && <p role="status">Trying the hair color on me… (about 10–30 seconds)</p>}
             {dyeTry && (
               <div className="variants dye-variants">
@@ -1091,14 +1140,9 @@ export default function Home() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={v.image} className="full" alt={`${label(v.product)} hair color on me`} />
                     <figcaption>
-                      <span className="card-brand">{v.product.name}</span>
-                      <span className="price">${v.product.price}</span>
-                      {v === dyeTry.budget && dyeTry.dupe && (
-                        <span className={dyeTry.dupe.isTrueDupe ? "dupe-ok" : "dupe-no"}>
-                          {dyeTry.dupe.isTrueDupe
-                            ? `✓ Just as gorgeous on me as the $${dyeTry.premium.product.price} salon color 💅 · $${dyeTry.premium.product.price - v.product.price} saved 💰`
-                            : `✗ Not quite the same on me: the ${dyeTry.premium.product.name} is worth the splurge here 💖`}
-                        </span>
+                      <span className="lip-product-name">{v.product.name} <span className="lip-product-price">(${v.product.price})</span></span>
+                      {v === dyeTry.budget && dyeTry.dupe && !dyeTry.dupe.isTrueDupe && (
+                        <span className="dupe-no">✗ Not quite the same on me: the {dyeTry.premium.product.name} is worth the splurge here 💖</span>
                       )}
                       {v === dyeTry.budget && dyeTry.dupe && <span className="hint">hair color difference {dyeTry.dupe.deltaE}</span>}
                       {v === dyeTry.budget && dyeTry.note && <span className="hint">{dyeTry.note}</span>}
@@ -1119,17 +1163,54 @@ export default function Home() {
             ) : (
               <p className="hint">Brows usually stay as they are unless the hair color changes a lot. Pick a hair color above for a suggestion, or try a brow shade anyway.</p>
             )}
-            <div className="dye-swatches">
-              <button aria-pressed={!browPick} onClick={() => { setPickBrow(null); setBrowFamilyKey(null); }}>My natural brows</button>
-              {BROW_FAMILIES.filter((f) => !config?.demo || (config.demoBrows ?? []).includes(browFamily(f.key)?.premium.id ?? "")).map((f) => (
+            {(() => {
+              const featured = browColorOptions.slice(0, 3);
+              const more = browColorOptions.slice(3);
+              const colorButton = (f: (typeof browColorOptions)[number]) => (
                 <button key={f.key} aria-pressed={browFamilyKey === f.key && !!browPick} disabled={browBusy} onClick={() => tryBrow(f.key)}>
                   <span className="swatch" style={{ background: f.hex }} aria-hidden /> {f.shade}{browAdvice?.family === f.key ? " ★" : ""}
                 </button>
-              ))}
-            </div>
+              );
+              return (
+                <>
+                  <div className="dye-swatches">
+                    <button aria-pressed={!browPick} onClick={() => { setPickBrow(null); setBrowFamilyKey(null); }}>My natural brows</button>
+                    {featured.map(colorButton)}
+                  </div>
+                  {more.length > 0 && (
+                    <details className="more hair-more-options" open={more.some((f) => f.key === browFamilyKey)}>
+                      <summary>More brow shades ({more.length})</summary>
+                      <div className="dye-swatches">{more.map(colorButton)}</div>
+                    </details>
+                  )}
+                </>
+              );
+            })()}
             {browAdvice && <p className="hint">★ = suggested for my new hair color.</p>}
             {browBusy && <p role="status">Trying the brow color on me… (about 10–20 seconds)</p>}
             {browTry && (
+              <>
+              {browTry.natural && browCompareAfter?.crop && (
+                <>
+                  <button className="secondary" aria-pressed={compareBrows} onClick={() => setCompareBrows((value) => !value)}>
+                    {compareBrows ? "Hide before & after" : "Compare before & after"}
+                  </button>
+                  {compareBrows && (
+                    <div className="brow-before-after">
+                      <figure>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={browTry.natural} alt="My brows before the color" />
+                        <figcaption>Before · natural brows</figcaption>
+                      </figure>
+                      <figure>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={browCompareAfter.crop} alt={`${label(browCompareAfter.product)} brows after coloring`} />
+                        <figcaption>After · {browCompareAfter.product.shade}</figcaption>
+                      </figure>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="variants brow-variants">
                 {browTry.natural && (
                   <figure className="variant target">
@@ -1143,14 +1224,9 @@ export default function Home() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {v.crop && <img src={v.crop} alt={`${label(v.product)} on my brows`} />}
                     <figcaption>
-                      <span className="card-brand">{v.product.name}</span>
-                      <span className="price">${v.product.price}</span>
-                      {v === browTry.budget && browTry.dupe && (
-                        <span className={browTry.dupe.isTrueDupe ? "dupe-ok" : "dupe-no"}>
-                          {browTry.dupe.isTrueDupe
-                            ? `✓ Just as gorgeous on my brows as the $${browTry.premium.product.price} gel 💅 · $${browTry.premium.product.price - v.product.price} saved 💰`
-                            : `✗ Not quite the same on me: the ${browTry.premium.product.name} is worth the splurge here 💖`}
-                        </span>
+                      <span className="lip-product-name">{v.product.name} <span className="lip-product-price">(${v.product.price})</span></span>
+                      {v === browTry.budget && browTry.dupe && !browTry.dupe.isTrueDupe && (
+                        <span className="dupe-no">✗ Not quite the same on me: the {browTry.premium.product.name} is worth the splurge here 💖</span>
                       )}
                       {v === browTry.budget && browTry.note && <span className="hint">{browTry.note}</span>}
                       <button className="pick" aria-pressed={v.product.id === pickBrow} onClick={() => setPickBrow(v.product.id)}>
@@ -1161,6 +1237,7 @@ export default function Home() {
                   </figure>
                 ))}
               </div>
+              </>
             )}
           </div>
           </div>
@@ -1200,9 +1277,10 @@ export default function Home() {
             {dyePick && <> + <strong>{label(dyePick.product)}</strong> ${dyePick.product.price}</>}
             {browPick && <> + <strong>{label(browPick.product)}</strong> ${browPick.product.price}</>}
           </p>
-          <details className="more">
-            <summary>Compare the full look on me with my picks</summary>
-          <div className="compare">
+          <button className="secondary compare-toggle" aria-expanded={showLookCompare} aria-controls="full-look-compare" onClick={() => setShowLookCompare((value) => !value)}>
+            {showLookCompare ? "Hide comparison" : "Compare my look"}
+          </button>
+          {showLookCompare && <div className="compare" id="full-look-compare">
             <figure>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={start.transferImage} alt="My photo with the full makeup look I loved" />
@@ -1219,11 +1297,7 @@ export default function Home() {
                 {" "}= <strong>${lipPick.product.price + (blushPick?.product.price ?? 0) + (dyePick?.product.price ?? 0) + (browPick?.product.price ?? 0)}</strong>
               </figcaption>
             </figure>
-          </div>
-          </details>
-          <p className="hint">
-            Change a pick with &quot;Use in my look&quot; in the Lipstick, Blush and Hair &amp; brows tabs. Combined on my own photo, no extra try-ons.
-          </p>
+          </div>}
           {applying && (
             <p className="banner" role="status">
               Still applying {applying}… the picture and total will update in a few seconds.
@@ -1234,7 +1308,7 @@ export default function Home() {
             const all = items.every((i) => inCart(i.id));
             return (
               <button id="get-my-look" className="big primary" onClick={() => addToCart(...items)} disabled={all || !!applying}>
-                {applying ? "Wait: still applying…" : all ? "✓ In my beauty bag" : `Get my look 🛍️ · $${items.reduce((t, i) => t + i.price, 0)}${keptTotal(items) ? ` · $${keptTotal(items)} saved 💰` : ""}`}
+                {applying ? "Wait: still applying…" : all ? "✓ In my beauty bag" : `Get my look 🛍️ · $${items.reduce((t, i) => t + i.price, 0)}`}
               </button>
             );
           })()}
@@ -1253,7 +1327,7 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <p><strong>Total: ${cartTotal}</strong>{cartKept > 0 && <> · <strong className="kept">${cartKept} saved</strong> in my beauty kitty 💰</>}</p>
+          <p><strong>Total: ${cartTotal}</strong></p>
           <p className="hint">Demo store: no order is placed (your kitty is safe 😉).</p>
         </section>
       )}
@@ -1281,7 +1355,7 @@ function PhotoPicker(props: { title: string; hint: string; file: File | null; ch
       <p className="hint">{props.hint}</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {url && <img src={props.check?.overlay.toDataURL("image/jpeg", 0.8) ?? url} alt={`${props.title} preview with the lip area outlined`} />}
-      {props.check && !problem && <p className="ok">✓ Lips found</p>}
+      {props.check && !problem && <p className="ok">✓ Lips highlighted</p>}
       {problem && <p role="alert" className="error">{problem}</p>}
       <label className="button-like">
         {props.file ? "Choose a different photo" : "Choose photo"}
@@ -1328,22 +1402,26 @@ function ShadeGroupCard({ group, targetCrop, full, targetHex, lookFinish, bestId
               {(full ? c.image : c.crop) && <img src={full ? c.image : c.crop} className={full ? "full" : ""} alt={`${label(c.product)} on my ${full ? "face" : "lips"}. ${why ?? ""}`} />}
               <figcaption>
                 {c.product.id === bestId && <span className="tag best-tag">Smart pick</span>}
-                <span className="card-brand">{c.product.name}</span>
-                <span className="price">${c.product.price}</span>
-                <span><span className="score">{c.score}%</span> match · {c.verdict}</span>
-                <span className={`finish ${c.finishMatch === false ? "finish-off" : ""}`}>
-                  {cap(c.finish)} finish{c.finishMatch === true ? " ✓ same as the look" : c.finishMatch === false ? `, the look is ${lookFinish}` : ""}
-                </span>
-                {why && <span className="why">{why}</span>}
-                {c.tones?.flatter && <span className="why">Flatter than the look: less contrast between the light and dark parts of the lips.</span>}
-                <span className="hint">ΔE {c.deltaE}{c.tones ? ` (middle ${c.tones.middle} · light parts ${c.tones.light} · dark parts ${c.tones.dark})` : ""}</span>
-                {c.dupe && (
-                  <span className={c.dupe.isTrueDupe ? "dupe-ok" : "dupe-no"}>
-                    {c.dupe.isTrueDupe
-                      ? `✓ Just as gorgeous on me as the $${c.product.price + (c.savings ?? 0)} splurge 💅 · $${c.savings} saved 💰`
-                      : `✗ Not quite the same on me: the ${getProduct(c.dupe.premiumId)?.name ?? "splurge version"} is worth the splurge here 💖`}
-                  </span>
-                )}
+                <span className="lip-product-name">{c.product.name} <span className="lip-product-price">(${c.product.price})</span></span>
+                <span className="lip-match"><span className="score">{c.score}%</span> match · {c.verdict}</span>
+                <details className="shade-details">
+                  <summary>Details</summary>
+                  <div className="shade-detail-content">
+                    <span className={`finish ${c.finishMatch === false ? "finish-off" : ""}`}>
+                      {cap(c.finish)} finish{c.finishMatch === true ? " ✓ same as the look" : c.finishMatch === false ? `, the look is ${lookFinish}` : ""}
+                    </span>
+                    {why && <span className="why">{why}</span>}
+                    {c.tones?.flatter && <span className="why">Flatter than the look: less contrast between the light and dark parts of the lips.</span>}
+                    <span className="hint">ΔE {c.deltaE}{c.tones ? ` (middle ${c.tones.middle} · light parts ${c.tones.light} · dark parts ${c.tones.dark})` : ""}</span>
+                    {c.dupe && (
+                      <span className={c.dupe.isTrueDupe ? "dupe-ok" : "dupe-no"}>
+                        {c.dupe.isTrueDupe
+                          ? `✓ Just as gorgeous on me as the $${c.product.price + (c.savings ?? 0)} splurge 💅 · $${c.savings} saved 💰`
+                          : `✗ Not quite the same on me: the ${getProduct(c.dupe.premiumId)?.name ?? "splurge version"} is worth the splurge here 💖`}
+                      </span>
+                    )}
+                  </div>
+                </details>
                 <button onClick={() => onAdd(c.product)} disabled={inCart(c.product.id)} aria-label={inCart(c.product.id) ? `${label(c.product)} is in my cart` : `Add ${label(c.product)}, $${c.product.price}, to cart`}>
                   {inCart(c.product.id) ? "✓ In cart" : "Add to cart"}
                 </button>

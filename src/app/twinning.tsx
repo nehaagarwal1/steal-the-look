@@ -225,7 +225,7 @@ export function Twinning(props: {
     rec.onstop = () => {
       download(new Blob(chunks, { type: type.mime.split(";")[0] }), `pretty-smart-twinning.${type.ext}`);
       setRecording(false);
-      setNote("Saved. Only share it if the person in the look photo is OK with it.");
+      setNote("Saved.");
     };
     rec.start();
     replay();
@@ -251,12 +251,10 @@ export function Twinning(props: {
         <button onClick={replay} disabled={!imgs || recording}>↺ Replay</button>
         <button onClick={saveVideo} disabled={!imgs || recording}>{recording ? "Recording… (6 seconds)" : "Save as video"}</button>
       </div>
-      <p className="hint">Made in this browser, nothing is uploaded. Only share it if the person in the look photo is OK with it.</p>
       {note && <p role="status">{note}</p>}
       {still && <p className="hint">Animations are reduced on this device; press Replay to play it.</p>}
 
       <div className="happy">
-        <h3>Loving my glow-up?</h3>
         <div className="actions">
           <button className="big primary" aria-pressed={answer === "love"} onClick={love}>Love it 💖</button>
           <button className="big" aria-pressed={answer === "tweak"} onClick={() => setAnswer("tweak")}>Let me play more</button>
