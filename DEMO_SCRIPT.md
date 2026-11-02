@@ -30,8 +30,7 @@ ask the video to explain the YouCam APIs used; this covers all of them, in conte
 
 🎬 **Captions:** `YouCam AI Image Generator` (only if the look is AI-generated) → `YouCam Makeup Transfer`
 
-> Pretty Smart starts with two photos: my selfie and the look. (If the look is
-> AI-generated: "This look photo was created with the **YouCam AI Image Generator**.")
+> Pretty Smart starts with two photos: my selfie and the look. "This look photo was created with the **YouCam AI Image Generator**.")
 > **YouCam Makeup Transfer** recreates the look from the photo on my face. Then
 > the app finds my perfect match, one product at a time, starting with the lips.
 
